@@ -26,6 +26,8 @@ class RangeIter:
 
 class Range:
     def __init__(self, min, max, l_inclusive=True, r_inclusive=False):
+        if min > max:
+            raise ValueError("min > max")
         self.min = min
         self.max = max
         self.l_inclusive = l_inclusive
@@ -69,15 +71,17 @@ class MultiRangeIter:
         self.range_n = 0
 
     def __iter__(self):
+        print("multirange iter")
         return self
 
     def __next__(self):
-        if self.range_n > len(self.multi_range.ranges):
+        if self.range_n >= len(self.multi_range.ranges):
+            print(f"return, range_n: {self.range_n}")
             raise StopIteration
         size_per_step = self.multi_range.size / self.n_steps
         curr_range = self.multi_range.ranges[self.range_n]
         x = curr_range.min + self.range_step_i*size_per_step
-        if x > curr_range.min:
+        if x > curr_range.max:
             self.range_step_i = 0
             self.range_n += 1
             return next(self)
@@ -234,6 +238,8 @@ class Polynom:
             a = self.koefs[2]
             b = self.koefs[1]
             c = self.koefs[0]
+            if b**2 < 4*a*c:
+                return [] if return_list else None
             root = math.sqrt(b**2-4*a*c)
             x1 = (-b + root)/(2*a)
             x2 = (-b - root)/(2*a)
@@ -253,6 +259,7 @@ class Polynom:
         if return_list:
             results = []
         for x in x_range.step_through(n_steps):
+
             # print(f"trying: {x}")
             y = self.apply(x)
             if (prev_y is not None) and prev_y < 0 and y >= 0:
@@ -300,31 +307,19 @@ class FlugKurve:
         return Vector2(self.x.apply(t), self.y.apply(t))
 
 
-class CircleForm:
-    def __init__(self, pos: Vector2, radius, x_range: Range, y_range: Range, resolution=100) -> None:
-        self.pos = pos
-        self.radius = radius
+class BoundingBox:
+    def __init__(self, x_range: Range, y_range: Range):
         self.x_range = x_range
         self.y_range = y_range
-        self.points = []
-        for i in range(resolution):
-            a_r = i*2*math.pi/resolution
-            x = math.cos(a_r)
-            y = math.sin(a_r)
-            if x_range.check(x) and y_range.check(y):
-                self.points.append((x, y))
 
-    def draw(self, screen, color):
-        pygame.draw.circle(screen, color, self.pos, self.radius, width=3)
-
-    def find_collision(self, kurve: FlugKurve):
+    def times_inside(self, kurve: FlugKurve) -> Range:
         # find when ball enters/exits range
         rpos = Range(0, float("inf"))  # positive real
         x_t_ranges = []
         x_min_colls = (
-            kurve.x - self.x_range.min).find_smallest_root(rpos, return_list=True)
+            kurve.x - (self.x_range.min - kurve.r)).find_smallest_root(rpos, return_list=True)
         x_max_colls = (
-            kurve.x - self.x_range.max).find_smallest_root(rpos, return_list=True)
+            kurve.x - (self.x_range.max + kurve.r)).find_smallest_root(rpos, return_list=True)
 
         x0 = kurve.x.apply(0)
         x_colls = x_min_colls + x_max_colls  # .sort()
@@ -336,7 +331,7 @@ class CircleForm:
         prev_t = 0
 
         if not self.x_range.check(x0):
-            prev_t = x_colls.pop()
+            prev_t = x_colls.pop(0)
         for (i, t) in enumerate(x_colls):
             if i % 2 == 0:
                 x_t_ranges.append(Range(prev_t, t))
@@ -349,9 +344,9 @@ class CircleForm:
         # x_t_ranges.append(Range(prev_t, self.x_range.max))
 
         y_min_colls = (
-            kurve.y - self.y_range.min).find_smallest_root(rpos, return_list=True)
+            kurve.y - (self.y_range.min - kurve.r)).find_smallest_root(rpos, return_list=True)
         y_max_colls = (
-            kurve.y - self.y_range.max).find_smallest_root(rpos, return_list=True)
+            kurve.y - (self.y_range.max + kurve.r)).find_smallest_root(rpos, return_list=True)
 
         y_colls = y_min_colls + y_max_colls
         y_colls.sort()
@@ -360,67 +355,111 @@ class CircleForm:
 
         prev_t = 0
         if not self.y_range.check(y0):
-            prev_t = y_colls.pop()
+            prev_t = y_colls.pop(0)
         t_ranges = []
         x_rang_i = 0
 
         for (i, t) in enumerate(y_colls):
             if i % 2 == 0:
                 y_range = Range(prev_t, t)
-                x_i = 0
-                while x_i < len(x_t_ranges):
-                    intersect = y_range.intersect(x_t_ranges[x_i])
+                # x_i = 0
+                while x_rang_i < len(x_t_ranges):
+                    intersect = y_range.intersect(x_t_ranges[x_rang_i])
                     if intersect is None:
                         break
                     t_ranges.append(intersect)
-                    x_i += 1
+                    x_rang_i += 1
 
                 prev_t = None
             else:
                 prev_t = t
         print(f"found {len(t_ranges)} ranges")
         multi_range = MultiRange(t_ranges)  # anderen name wählen
+        return multi_range
+
+
+class CirclePath:
+    def __init__(self, pos, radius, x_range=None, y_range=None):
+        self.pos = pos
+        self.radius = radius
+
+
+class CircleForm:
+    def __init__(self, pos: Vector2, radius, x_range: Range, y_range: Range, resolution=100, ball_size=50):
+        self.pos = pos
+        self.radius = radius
+        self.x_range = x_range
+        self.y_range = y_range
+        self.points = []
+        self.edges = []
+        edge_angles = []
+        prev_included = False
+        step_size = 2*math.pi/resolution
+        for i in range(resolution):
+            # print(f"i: {i}")
+            a_r = i*step_size
+            x = math.cos(a_r)*self.radius + self.pos.x
+            y = math.sin(a_r)*self.radius + self.pos.y
+            if x_range.check(x) and y_range.check(y):
+                self.points.append((x, y))
+                if not prev_included:
+                    self.edges.append(Vector2(x, y))
+                    edge_angles.append(a_r)
+                    prev_included = True
+            elif prev_included:
+                self.edges.append(self.points[-1])
+                edge_angles.append(a_r - step_size)
+                prev_included = False
+        if len(edge_angles) % 2 == 1:
+            raise ValueError("Weird number of kanten")
+        # self.paths = []
+        # for i in range(len(edge_angles)//2):
+        #     a_1 = edge_angles[i*2]
+        #     a_2 = edge_angles[i*2+1]
+        #     rsmall = self.radius - ball_size
+        #     rlarge = self.radius + ball_size
+        #     x_range_small = Range(math.cos(a_1)*rsmall +
+        #                           self.pos.x, math.cos(a_2)*rsmall+self.pos.x)
+        #     x_range_large = Range(math.cos(a_1)*rlarge +
+        #                           self.pos.x, math.cos(a_2)*rlarge+self.pos.x)
+        #     self.paths.append(CirclePath(self.pos, rsmall,
+        #                       x_range_small, self.y_range))
+        #     self.paths.append(CirclePath(self.pos, rlarge,
+        #                       x_range_small, self.y_range))
+
+    def draw(self, screen, color):
+        # print(f"points: {self.points}")
+        pygame.draw.lines(screen, color, False, self.points, width=3)
+        # for kante in self.kanten:
+        #     pygame.draw.circle(screen, color, kante, 50)
+
+    def find_collision(self, kurve: FlugKurve):
+
+        colls = []
         check_outer_eq = ((kurve.x-self.pos.x)**2 +
                           (kurve.y-self.pos.y)**2 - (self.radius + kurve.r)**2)
         coll_outer = check_outer_eq.find_smallest_root(
             multi_range, do_numeric=True)
-
+        if coll_outer is not None:
+            colls.append(coll_outer)
         check_inner_eq = ((kurve.x-self.pos.x)**2 +
                           (kurve.y-self.pos.y)**2 - (self.radius - kurve.r)**2)
         coll_inner = check_inner_eq.find_smallest_root(
             multi_range, do_numeric=True)
 
-        if coll_outer is None:
-            return coll_inner
-        if coll_inner is None:
-            return coll_outer
-        return min(coll_inner, coll_outer)
+        if coll_inner is not None:
+            colls.append(coll_inner)
+        for kante in self.edges:
+            check_kante = ((kurve.x-kante[0])**2 +
+                           (kurve.y-kante[1])**2 - kurve.r**2)
+            coll_kante = check_kante.find_smallest_root(
+                multi_range, do_numeric=True)
+            if coll_kante is not None:
+                colls.append(coll_kante)
 
-
-class PolyForm:
-    def __init__(self, poly: Polynom, range: Range, resolution=100):
-        self.poly = poly
-        print(f"poly: {poly}")
-        self.range = range
-        points = []
-        for x in range.step_through(resolution):
-            y = self.poly.apply(x)
-            points.append((x, y))
-        self.points = points
-
-    def draw(self, screen, color):
-        pygame.draw.polygon(screen, color, self.points, 3)
-
-    def find_collision(self, kurve: FlugKurve):
-        assert kurve.x.grad < 3
-        min_eq = kurve.x - (self.range.min - kurve.r)
-        tmin = min_eq.find_smallest_root(Range(0, float("inf"))) or 0
-        tmax = (kurve.x - (self.range.max + kurve.r)
-                ).find_smallest_root(Range(0, float('inf'))) or float("inf")
-        print(f"tmin: {tmin}, tmax: {tmax}, min_eq: {min_eq}")
-
-        kugel_gleichung = (kurve.x)**2 + (yp - kurve.y)**2 - kurve.r**2
-        return kugel_gleichung.find_smallest_root(Range(tmin, tmax))
+        if len(colls) == 0:
+            return None
+        return min(colls)
 
 
 class Ball:
@@ -467,12 +506,14 @@ if render:
 
     dt = 0.001
     # create ball
-    ball = Ball(Vector2(100, 100), Vector2(200, 100), 20, "red")
+    ball = Ball(Vector2(100, 100), Vector2(200, 100), 50, "red")
     boden = CircleForm(Vector2(600, -600), 1200,
-                       Range(0, 1280), Range(400, 700), 1000)
-    bahn = ball.gen_flugbahn(-9.8, 100)
+                       Range(200, 1080), Range(500, 700), 1000)
+    bahn = ball.gen_flugbahn(-9.8, 6)
     start_time = time.time_ns()
     coll_t = boden.find_collision(bahn)
+    passed = (time.time_ns() - start_time)/(10**6)
+    print(f"calculating took {passed} ms")
     print(f"coll_t: {coll_t}")
     while running:
         # poll for events
@@ -485,17 +526,18 @@ if render:
         screen.fill("black")
 
         # ball.update(dt)
-        passed = (time.time_ns() - start_time)/(10**8)
+        passed = (time.time_ns() - start_time)/(10**9)
         ball.pos = bahn.get_pos(passed)
-        if passed > coll_t:
+        if coll_t is not None and passed > coll_t:
             start_time = time.time_ns()
-            # screen.fill("black")
-            # boden.draw(screen, (0, 255, 0))
-            continue
+            ball.pos = bahn.get_pos(coll_t)
+        # screen.fill("black")
+        # boden.draw(screen, (0, 255, 0))
+        # continue
 
         # RENDER YOUR GAME HERE
-        ball.draw()
         boden.draw(screen, (0, 255, 0))
+        ball.draw()
         # flip() the display to put your work on screen
         pygame.display.flip()
         i += 1
