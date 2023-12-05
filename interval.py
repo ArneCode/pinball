@@ -50,8 +50,8 @@ class SimpleInterval(Interval):
             yield self.min+i*step_size
 
     def intersect(self, other: SimpleInterval):
-        print(
-            f"intersect range {{{self.min} to {self.max}}}, {{{other.min} to {other.max}}}")
+        #print(
+            #f"intersect range {{{self.min} to {self.max}}}, {{{other.min} to {other.max}}}")
         if self.min <= other.min:
             links = self
             rechts = other
@@ -83,7 +83,7 @@ class MultiInterval(Interval):
                 yield x
         # return StopIteration
 
-        print("stepping through multirange")
+        #print("stepping through multirange")
         # return MultiRangeIter(self, n_steps)
 
     def check(self, v):

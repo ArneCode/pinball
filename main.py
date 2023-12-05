@@ -1,218 +1,26 @@
 from __future__ import annotations
 import time
 import math
-import numbers
-# Example file showing a basic pygame "game loop"
+from typing import Tuple
 import pygame
 from pygame.math import Vector2
 from interval import SimpleInterval, MultiInterval
-
-from typing import Iterator, Optional, List
-
-
-class Polynom:
-    koefs: List[float | int]
-
-    def __init__(self, koefs):
-        self.koefs = koefs
-        self.grad = len(self.koefs) - 1
-
-    def deriv(self):
-        new_koeffs = []
-        for (exp, koeff) in enumerate(self.koefs):
-            if exp == 0:
-                continue
-            new_koeffs.append(koeff*exp)
-        return Polynom(new_koeffs)
-
-    def __add__(self, other: int | float | Polynom) -> Polynom:
-        if isinstance(other, numbers.Number):
-            other = Polynom([other])
-        if not isinstance(other, Polynom):
-            raise TypeError(
-                f"expected Polynom or Number, but got {type(other)}: {other}")
-        if self.grad > other.get_grad():
-            print("a")
-            l = self.koefs
-            s = other.koefs
-        else:
-            print("b")
-            l = other.koefs
-            s = self.koefs
-        new_koeffs = l.copy()
-        for (i, k) in enumerate(s):
-            new_koeffs[i] += k
-        return Polynom(new_koeffs)
-
-    def __neg__(self) -> Polynom:
-        return Polynom(list(map(lambda k: -k, self.koefs)))
-
-    def __sub__(self, other: float | int | Polynom):
-        return self + (-other)
-
-    def __mul__(self, other: int | float):
-        if not isinstance(other, numbers.Number):
-            raise TypeError(f"got weird other: {other}, type: {type(other)}")
-        new_koeffs: List[float | int] = [0]*len(self.koefs)
-        for (i, k) in enumerate(self.koefs):
-            new_koeffs[i] = k*other
-        return Polynom(new_koeffs)
-
-    def __pow__(self, exp):
-        assert isinstance(exp, int)
-        pytag_pyramid = {}
-
-        depth = 0
-        exps = [0] * len(self.koefs)
-        sum = 0
-        max_exp = self.grad
-        backtracked = False
-        while depth >= 0:
-            # print(f"exps: {exps}")
-            if depth == max_exp:
-                exps[depth] = exp - sum
-                sum = exp
-            if sum == exp:
-                k = math.factorial(exp)
-                for new_exp in exps:
-                    k //= math.factorial(new_exp)
-                # assert not (tuple(exps) in pytag_pyramid)
-                pytag_pyramid[tuple(exps)] = k
-                sum -= exps[depth]
-                exps[depth] = 0
-                depth -= 1
-                backtracked = True
-                continue
-            if backtracked:
-                exps[depth] += 1
-                sum += 1
-                backtracked = False
-            depth += 1
-        # print(pytag_pyramid)
-        new_koeffs = [0]*(max_exp*exp + 1)
-        for (exps, k) in pytag_pyramid.items():
-            total_exp = 0
-            for (exp, exp_factor) in enumerate(exps):
-                k *= self.koefs[exp]**exp_factor
-                total_exp += exp*exp_factor
-            new_koeffs[total_exp] += k
-        return Polynom(new_koeffs)
-
-    def apply(self, x):
-        sum = 0
-        for (i, k) in enumerate(self.koefs):
-            # diese Reihenfolge, sodass overload-operatoren verwendet werden können
-            sum = (x**i)*k + sum
-        return sum
-
-    def reduce(self) -> Polynom:
-        """
-        if there are zeros-koefficients for the highest exponents, they are removed
-        """
-        non0_end = len(self.koefs)
-        for i in range(non0_end-1, -1, -1):  # loops backwards
-            k = self.koefs[i]
-            if not math.isclose(k, 0.0, abs_tol=1e-6):
-                non0_end = i + 1
-                break
-        return Polynom(self.koefs[0:non0_end])
-
-    def __str__(self) -> str:
-        return f"Polynom{{{self.koefs}}}"
-
-    def get_grad(self) -> int:
-        return len(self.koefs) - 1
-
-    def find_smallest_root(self, x_range: Optional[SimpleInterval] = None, return_list=False, do_numeric=False) -> List[float] | float | None:
-        print(f"finding roots: {self}")
-        this = self.reduce()
-        if this.grad < 1:
-            raise ValueError(f"cannot find the roots of: {this}")
-        if this.get_grad() == 1:
-            a = self.koefs[0]
-            b = self.koefs[1]
-            result: float = -a/b
-            if return_list:
-                return result if x_range is None else list(filter(x_range.check, [result]))
-            return result if x_range is None or x_range.check(result) else None
-        #    if math.isclose(this.koefs[0], 0.0, abs_tol=1e-6):  # satz vom Nullprodukt, nicht wahrscheinlich, dass es vorkommt, da es eine Kollision direkt am Anfang der Flugbahn bedeutet
-        #        roots_svn = Polynom(self.koefs[1:]).find_roots(
-        #            x_range.restrict_max(0))
-        #        roots_svn.append(0)
-        #        return roots_svn
-        if this.get_grad() == 2:  # Mitternachtsformel
-            a = self.koefs[2]
-            b = self.koefs[1]
-            c = self.koefs[0]
-            if b**2 < 4*a*c:
-                return [] if return_list else None
-            root = math.sqrt(b**2-4*a*c)
-            x1 = (-b + root)/(2*a)
-            x2 = (-b - root)/(2*a)
-            result: List[float] = [x1, x2]
-            if x_range is not None:
-                result = list(filter(x_range.check, result))
-            if return_list:
-                return result
-            return min(result) if result else None
-        if do_numeric and x_range is not None:
-            return self.smallest_root_bisect(x_range, return_list=return_list)
-
-    def smallest_root_bisect(self, x_range: SimpleInterval, n_steps=1000, return_list=False) -> List[float] | float | None:
-        """
-        find roots using the bisection method
-        """
-        prev_x = None
-        prev_y = None
-        if return_list:
-            results: List[float] = []
-        for x in x_range.step_through(n_steps):
-
-            # print(f"trying: {x}")
-            y = self.apply(x)
-            if (prev_y is not None) and prev_y < 0 and y >= 0:
-                result = self.root_bisect(prev_x, x)
-                if return_list:
-                    results.append(result)
-                else:
-                    return result
-            elif (prev_y is not None) and prev_y >= 0 and y < 0:
-                result = self.root_bisect(x, prev_x)
-                if return_list:
-                    results.append(result)
-                else:
-                    return result
-            prev_x = x
-            prev_y = y
-        return results if return_list else None
-
-    def root_bisect(self, a, b):
-        """
-        find a single root using the bisection method
-        """
-        # ya = self.apply(a)
-        yb = self.apply(b)
-
-        while not math.isclose(yb, 0.0, abs_tol=1e-6):
-            mid = (a+b)/2
-            ym = self.apply(mid)
-            if ym < 0:
-                a = mid
-                # ya = ym
-            else:
-                b = mid
-                yb = ym
-        return b
+import copy
+from polynom import Polynom
 
 
 class FlugKurve:
-    def __init__(self, x: Polynom, y: Polynom, r=5):
-        self.x = x
-        self.y = y
-        self.r = r
+    def __init__(self, pos: Vec, r=5.0):
+        self.pos = pos
+        self.ball_r = r
 
     def get_pos(self, t):
-        return Vector2(self.x.apply(t), self.y.apply(t))
+        return Vec(self.pos.x.apply(t), self.pos.y.apply(t))
+
+    def get_vel(self, t):
+        x = self.pos.x.deriv().apply(t)
+        y = self.pos.y.deriv().apply(t)
+        return Vec(x, y)
 
 
 class BoundingBox:
@@ -220,21 +28,19 @@ class BoundingBox:
         self.x_range = x_range
         self.y_range = y_range
 
-    def times_inside(self, kurve: FlugKurve) -> MultiInterval | None:
+    def times_inside(self, ball: Ball) -> MultiInterval | None:
         # find when ball enters/exits range
         rpos = SimpleInterval(0, float("inf"))  # positive real
         x_t_ranges = []
         x_min_colls = (
-            kurve.x - (self.x_range.min - kurve.r)).find_smallest_root(rpos, return_list=True)
+            ball.bahn.x - (self.x_range.min - ball.radius)).find_roots(rpos)
         x_max_colls = (
-            kurve.x - (self.x_range.max + kurve.r)).find_smallest_root(rpos, return_list=True)
+            ball.bahn.x - (self.x_range.max + ball.radius)).find_roots(rpos)
 
-        x0 = kurve.x.apply(0)
+        x0 = ball.pos_0.x
         x_colls = x_min_colls + x_max_colls  # .sort()
         x_colls.sort()
-        print(f"x_cols: {x_colls}")
         if x_colls is None or len(x_colls) == 0:
-            print(f"x_colls is None, min: {x_min_colls}, max: {x_max_colls}")
             return None
         prev_t = 0
 
@@ -248,21 +54,19 @@ class BoundingBox:
                 prev_t = t
         # if prev_t is not None:
         #     raise ValueError("Hmmmmm, sollte nicht passien")
-        print(f"{len(x_t_ranges)} x_t_ranges")
         # x_t_ranges.append(Range(prev_t, self.x_range.max))
 
         y_min_colls = (
-            kurve.y - (self.y_range.min - kurve.r)).find_smallest_root(rpos, return_list=True)
+            ball.bahn.y - (self.y_range.min - ball.radius)).find_roots(rpos)
         y_max_colls = (
-            kurve.y - (self.y_range.max + kurve.r)).find_smallest_root(rpos, return_list=True)
+            ball.bahn.y - (self.y_range.max + ball.radius)).find_roots(rpos)
 
         y_colls = y_min_colls + y_max_colls
         y_colls.sort()
-        print(f"y_colls: {y_colls}")
-        y0 = kurve.y.apply(0)
+        y0 = ball.pos_0.y
 
         prev_t = 0
-        if not self.y_range.check(y0):
+        if not self.y_range.check(y0) and len(y_colls) > 0:
             prev_t = y_colls.pop(0)
         t_ranges = []
         x_rang_i = 0
@@ -281,24 +85,114 @@ class BoundingBox:
                 # prev_t = None
             else:
                 prev_t = t
-        print(f"found {len(t_ranges)} ranges")
         multi_range = MultiInterval(t_ranges)  # anderen name wählen
         return multi_range
 
 
+class Vec:
+    def __init__(self, x, y) -> None:
+        self.x = x
+        self.y = y
+
+    def __add__(self, other: Vec):
+        x = self.x + other.x
+        y = self.y + other.y
+        return Vec(x, y)
+
+    def __str__(self) -> str:
+        return f"Vec({self.x}, {self.y})"
+
+    def get_angle(self) -> float:
+        return math.atan2(self.y, self.x)
+
+    @staticmethod
+    def from_angle(angle: float) -> Vec:
+        return Vec(math.cos(angle), math.sin(angle))
+
+    def __mul__(self, other) -> Vec:
+        return Vec(other*self.x, other*self.y)
+
+    def apply(self, v: float) -> Vec:
+        if isinstance(self.x, Polynom) and isinstance(self.y, Polynom):
+            return Vec(self.x.apply(v), self.y.apply(v))
+        else:
+            raise ValueError("can only apply to Polynom")
+
+    def deriv(self) -> Vec:
+        if isinstance(self.x, Polynom) and isinstance(self.y, Polynom):
+            return Vec(self.x.deriv(), self.y.deriv())
+        else:
+            raise ValueError("can only derive polynom")
+
+    def magnitude(self) -> float:
+        return math.sqrt(self.x**2+self.y**2)
+
+    def normalize(self) -> Vec:
+        return self*(1/self.magnitude())
+
+
+class Collision:
+    time: float
+    bahn: Vec
+    obj: CirclePath  # replace with interface
+
+    def __init__(self, time: float, bahn: Vec, obj: CirclePath):
+        self.time = time
+        self.bahn = bahn
+        self.obj = obj
+
+    def get_result_dir(self) -> Vec:
+        normal = self.obj.get_normal(self.bahn.apply(self.time))
+        vel_before = self.bahn.deriv().apply(self.time)
+
+        normal_angle = normal.get_angle()
+        vel_angle = vel_before.get_angle()
+        diff = normal_angle - vel_angle
+
+        result_angle = vel_angle + 2*diff
+
+        vel_before_mag = vel_before.magnitude()
+
+
+        # return normal*vel_before.magnitude()
+        return Vec.from_angle(result_angle)*vel_before_mag*(-1)
+
+
 class CirclePath:
-    def __init__(self, pos: Vector2, radius, x_range, y_range):
+    def __init__(self, pos: Vector2, radius, x_range, y_range, name=""):
         self.pos = pos
         self.radius = radius
         self.bound = BoundingBox(x_range, y_range)
+        self.points = []
+        self.name = name
 
-    def find_collision(self, kurve: FlugKurve) -> float | None:
+        resolution = 1000
+        step_size = 2*math.pi/resolution
+        for i in range(resolution):
+            a_r = i*step_size
+            x = math.cos(a_r)*radius + pos.x
+            y = math.sin(a_r)*radius + pos.y
+            if x_range.check(x) and y_range.check(y):
+                self.points.append((x, y))
+
+    def get_normal(self, pos: Vec) -> Vec:
+        steep = -(pos.x - self.pos.x)/(pos.y-self.pos.y)
+        m = -1/steep
+        return Vec(1, m).normalize()
+
+    def draw(self, screen, color):
+        pygame.draw.lines(screen, color, False, self.points, width=1)
+
+    def find_collision(self, ball: Ball) -> Collision | None:
         # TODO: restrict searched t by already found!
-        t_range = self.bound.times_inside(kurve)
-        check_eq = ((kurve.x-self.pos.x)**2 +
-                    (kurve.y-self.pos.y)**2 - (self.radius)**2)
-        coll = check_eq.find_smallest_root(t_range, do_numeric=True)
-        return coll
+        t_range = self.bound.times_inside(ball)
+        check_eq = ((ball.bahn.x-self.pos.x)**2 +
+                    (ball.bahn.y-self.pos.y)**2 - (self.radius)**2)
+        coll = check_eq.find_roots(
+            t_range, return_smallest=True, do_numeric=True)
+        if len(coll) > 0:
+            return Collision(coll[0], ball.bahn, self)
+        return None
 
 
 class CircleForm:
@@ -340,75 +234,88 @@ class CircleForm:
             x_range_large = SimpleInterval(math.cos(a_1)*rlarge +
                                            self.pos.x, math.cos(a_2)*rlarge+self.pos.x)
             self.paths.append(CirclePath(self.pos, rsmall,
-                              x_range_small, self.y_range))
+                              x_range_small, self.y_range, "large_inner"))
             self.paths.append(CirclePath(self.pos, rlarge,
-                              x_range_large, self.y_range))
+                              x_range_large, self.y_range, "large_outer"))
         for edge in self.edges:
             kante_x_range = SimpleInterval(
                 edge.x-ball_radius, edge.x+ball_radius)
             kante_y_range = SimpleInterval(
                 edge.y-ball_radius, edge.y+ball_radius)
             self.paths.append(CirclePath(
-                edge, ball_radius, kante_x_range, kante_y_range))
+                edge, ball_radius, kante_x_range, kante_y_range, "kant"))
 
     def draw(self, screen, color):
-        # print(f"points: {self.points}")
         pygame.draw.lines(screen, color, False, self.points, width=3)
-        # for kante in self.kanten:
-        #     pygame.draw.circle(screen, color, kante, 50)
+        for kante in self.paths:
+            # pygame.draw.circle(screen, color, kante, 50)
+            kante.draw(screen, color)
 
-    def find_collision(self, kurve: FlugKurve):
-        min_t = float("inf")
+    def find_collision(self, ball: Ball):
+        first_coll = None
+        i = 0
         for path in self.paths:
-            coll_t = path.find_collision(kurve)
-            if coll_t is None:
+            coll = path.find_collision(ball)
+            if coll is None:
                 continue
-            min_t = min(min_t, coll_t)
-        if min_t == float("inf"):
+            if first_coll is None or coll.time < first_coll.time:
+                first_coll = coll
+            i += 1
+        if first_coll == float("inf"):
             return None
-        return min_t
-        # colls = []
-        # check_outer_eq = ((kurve.x-self.pos.x)**2 +
-        #                   (kurve.y-self.pos.y)**2 - (self.radius + kurve.r)**2)
-        # coll_outer = check_outer_eq.find_smallest_root(
-        #     multi_range, do_numeric=True)
-        # if coll_outer is not None:
-        #     colls.append(coll_outer)
-        # check_inner_eq = ((kurve.x-self.pos.x)**2 +
-        #                   (kurve.y-self.pos.y)**2 - (self.radius - kurve.r)**2)
-        # coll_inner = check_inner_eq.find_smallest_root(
-        #     multi_range, do_numeric=True)
-        #
-        # if coll_inner is not None:
-        #     colls.append(coll_inner)
-        # for kante in self.edges:
-        #     check_kante = ((kurve.x-kante[0])**2 +
-        #                    (kurve.y-kante[1])**2 - kurve.r**2)
-        #     coll_kante = check_kante.find_smallest_root(
-        #         multi_range, do_numeric=True)
-        #     if coll_kante is not None:
-        #         colls.append(coll_kante)
-        #
-        # if len(colls) == 0:
-        #     return None
-        # return min(colls)
+        return first_coll
 
 
 class Ball:
-    def __init__(self, pos, vel, radius, color):
-        self.pos = pos
+    pos_0: Vec
+    bahn: Vec
+    radius: float
+    color: Tuple[int]
+    start_t: float
+
+    def __init__(self, pos, radius, color):
+        self.pos_0 = pos
         self.radius = radius
         self.color = color
-        self.vel = vel
+        self.vel_0 = Vec(0.0, 0.0)
+        self.acc = Vec(0.0, 0.0)
+        self.bahn = Vec(0.0, 0.0)
+        self.start_t = 0
 
-    def draw(self):
-        pygame.draw.circle(screen, self.color, self.pos, self.radius)
+    def get_pos(self, t: float) -> Vec:
+        return self.bahn.apply(t-self.start_t)
 
-    def gen_flugbahn(self, ay, vx):
+    def draw(self, t):
+        pos = self.get_pos(t)
+        pygame.draw.circle(screen, self.color,
+                           (pos.x, pos.y), self.radius)
+
+    def update_bahn(self):
         t = Polynom([0, 1])
-        x = t*vx + self.pos.x
-        y = -((t**2)*ay*0.5) + self.pos.y
-        return FlugKurve(x, y, self.radius)
+        self.bahn = self.acc*0.5*(t**2)+self.vel_0*t+self.pos_0
+
+    def with_acc(self, acc: Vec):
+        new = copy.copy(self)
+        new.acc = acc
+        new.update_bahn()
+        return new
+
+    def with_vel(self, vel: Vec):
+        new = copy.copy(self)
+        new.vel_0 = vel
+        new.update_bahn()
+        return new
+
+    def with_start_pos(self, pos: Vec):
+        new = copy.copy(self)
+        new.pos_0 = pos
+        new.update_bahn()
+        return new
+
+    def with_start_t(self, start_t: float):
+        new = copy.copy(self)
+        new.start_t = start_t
+        return new
 
 
 a = Polynom([1, 2, 3])
@@ -417,8 +324,8 @@ print((a-b).koefs)
 print(((Polynom([1, 1, 1])**4)).koefs)
 print(Polynom([0, 0, 0, 0, 1]).apply(Polynom([1, 1, 1])).koefs)
 print(Polynom([1, 0, 0, 0, 0, 0, 0]).reduce())
-print(Polynom([0, -15, -2, 1]).find_smallest_root(SimpleInterval(-10, 10)))
-print(Polynom([30, -11, -4, 1]).find_smallest_root(SimpleInterval(-10, 10)))
+print(Polynom([0, -15, -2, 1]).find_roots(SimpleInterval(-10, 10)))
+print(Polynom([30, -11, -4, 1]).find_roots(SimpleInterval(-10, 10)))
 
 
 # for i in range(1):
@@ -438,15 +345,17 @@ if render:
 
     dt = 0.001
     # create ball
-    ball = Ball(Vector2(100, 100), Vector2(200, 100), 50, "red")
-    boden = CircleForm(Vector2(600, -600), 1200,
-                       SimpleInterval(200, 1080), SimpleInterval(500, 700), 1000)
-    bahn = ball.gen_flugbahn(-9.8, 6)
+    ball = Ball(Vector2(100, 100), 50, "red").with_acc(Vec(0, 90.8)).with_vel(Vec(
+        120.0, 0
+    ))
+    boden = CircleForm(Vector2(600, 1600), 1200,
+                       SimpleInterval(200, 1080), SimpleInterval(100, 700), 1000)
+    # bahn = ball.gen_flugbahn(-9.8, 6)
     start_time = time.time_ns()
-    coll_t = boden.find_collision(bahn)
+    coll = boden.find_collision(ball)
     passed = (time.time_ns() - start_time)/(10**6)
     print(f"calculating took {passed} ms")
-    print(f"coll_t: {coll_t}")
+    print(f"coll_t: {coll}")
     while running:
         # poll for events
         # pygame.QUIT event means the user clicked X to close your window
@@ -458,18 +367,23 @@ if render:
         screen.fill("black")
 
         # ball.update(dt)
-        passed = (time.time_ns() - start_time)/(10**9)
-        ball.pos = bahn.get_pos(passed)
-        if coll_t is not None and passed > coll_t:
-            start_time = time.time_ns()
-            ball.pos = bahn.get_pos(coll_t)
+        passed = (time.time_ns() - start_time)/(10**(8.7))
+        # ball.pos_0 = bahn.get_pos(passed)
+        if coll is not None and passed > coll.time + ball.start_t:
+            dir = coll.get_result_dir()  # *(-50)
+            ball = ball.with_start_t(passed).with_start_pos(
+                ball.get_pos(coll.time+ball.start_t - 0.001)).with_vel(dir*(0.8))  # .with_acc(Vec(0.0, 0.0))
+            print(f"ball pos: {ball.pos_0}, actually: {ball.get_pos(passed)}")
+            coll = boden.find_collision(ball)
+            print(f"found coll: {coll}")
+
         # screen.fill("black")
         # boden.draw(screen, (0, 255, 0))
         # continue
 
         # RENDER YOUR GAME HERE
         boden.draw(screen, (0, 255, 0))
-        ball.draw()
+        ball.draw(passed)
         # flip() the display to put your work on screen
         pygame.display.flip()
         i += 1
