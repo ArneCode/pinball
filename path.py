@@ -1,0 +1,99 @@
+import math
+import pygame
+from ball import Ball
+from bounding_box import BoundingBox
+from collision import Collision
+from interval import SimpleInterval
+
+from polynom import Polynom
+from vec import Vec
+from abc import ABC, abstractmethod
+
+class Path(ABC):
+    @abstractmethod
+    def get_normal(self, pos: Vec) -> Vec:
+        pass
+    @abstractmethod
+    def find_collision(self, ball: Ball) -> Collision | None:
+        pass
+
+class CirclePath:
+    def __init__(self, pos: Vec, radius, x_range = None, y_range = None, name=""):
+        self.pos = pos
+        self.radius = radius
+        self.points = []
+        self.name = name
+
+        if x_range is None:
+            x_range = SimpleInterval(pos.x-radius, pos.x+radius)
+        if y_range is None:
+            y_range = SimpleInterval(pos.y-radius, pos.y+radius)
+        self.bound = BoundingBox(x_range, y_range)
+
+        resolution = 1000
+        step_size = 2*math.pi/resolution
+        for i in range(resolution):
+            a_r = i*step_size
+            x = math.cos(a_r)*radius + pos.x
+            y = math.sin(a_r)*radius + pos.y
+            if x_range.check(x) and y_range.check(y):
+                self.points.append((x, y))
+
+    def get_normal(self, pos: Vec) -> Vec:
+        steep = -(pos.x - self.pos.x)/(pos.y-self.pos.y)
+        m = -1/steep
+        return Vec(1, m).normalize()
+    def get_tangent(self, pos: Vec) -> Vec:
+        steep = -(pos.x - self.pos.x)/(pos.y-self.pos.y)
+        return Vec(1, steep).normalize()
+
+    def draw(self, screen, color):
+        pygame.draw.lines(screen, color, False, self.points, width=1)
+
+    def find_collision(self, ball: Ball) -> Collision | None:
+        # TODO: restrict searched t by already found!
+        t_range = self.bound.times_inside(ball)
+        check_eq = ((ball.bahn.x-self.pos.x)**2 +
+                    (ball.bahn.y-self.pos.y)**2 - (self.radius)**2)
+        coll = check_eq.find_roots(
+            t_range, return_smallest=True, do_numeric=True)
+        if len(coll) > 0:
+            return Collision(coll[0], ball.bahn, self)
+        return None
+class LinePath:
+    def __init__(self, pos1: Vec, pos2: Vec):
+        self.pos1 = pos1
+        self.pos2 = pos2
+        self.tangent = (pos2-pos1).normalize()
+        self.x_range = SimpleInterval(min(pos1.x, pos2.x), max(pos1.x, pos2.x))
+        self.y_range = SimpleInterval(min(pos1.y, pos2.y), max(pos1.y, pos2.y))
+        if math.isclose(self.tangent.y, 0.0, rel_tol=1e-5):
+            self.y_range = SimpleInterval(pos1.y - 5, pos1.y + 5)
+        if math.isclose(self.tangent.x, 0.0, rel_tol=1e-5):
+            self.x_range = SimpleInterval(pos1.x - 5, pos1.x + 5)
+            y = Polynom([0,1])
+            self.eq_x = y*0 + pos1.x
+            self.eq_y = y
+        else:
+            x = Polynom([0,1])
+            steep = self.tangent.y/self.tangent.x
+            self.eq_y = (x-pos1.x)*steep+pos1.y
+            self.eq_x = x
+    def get_normal(self, pos: Vec) -> Vec:
+        return self.tangent.orhtogonal().normalize()
+    def draw(self, screen, color):
+        pygame.draw.line(screen, color, (self.pos1.x, self.pos1.y), (self.pos2.x, self.pos2.y), width=1)
+
+    def find_collision(self, ball: Ball) -> Collision | None:
+        coll_eq: Polynom = self.eq_x.apply(ball.bahn.y) - self.eq_y.apply(ball.bahn.x)
+        colls = coll_eq.find_roots(SimpleInterval(0,float("inf")),return_smallest=False)
+        
+        min_t = float("inf")
+        for coll in colls:
+            if self.x_range.check(ball.bahn.x.apply(coll)) and self.y_range.check(ball.bahn.y.apply(coll)):
+                min_t = min(min_t, coll)
+            else:
+                print(f"not in range: {ball.bahn.apply(coll)}")
+        if min_t == float("inf"):
+            return None
+        return Collision(min_t, ball.bahn, self)
