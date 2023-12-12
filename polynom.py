@@ -64,11 +64,11 @@ class Polynom:
                 exps[depth] = exp - sum
                 sum = exp
             if sum == exp:
-                k = math.factorial(exp)
+                koeff = math.factorial(exp)
                 for new_exp in exps:
-                    k //= math.factorial(new_exp)
+                    koeff //= math.factorial(new_exp)
                 # assert not (tuple(exps) in pytag_pyramid)
-                pytag_pyramid[tuple(exps)] = k
+                pytag_pyramid[tuple(exps)] = koeff
                 sum -= exps[depth]
                 exps[depth] = 0
                 depth -= 1
@@ -80,12 +80,12 @@ class Polynom:
                 backtracked = False
             depth += 1
         new_koeffs = [0]*(max_exp*exp + 1)
-        for (exps, k) in pytag_pyramid.items():
+        for (exps, koeff) in pytag_pyramid.items():
             total_exp = 0
             for (exp, exp_factor) in enumerate(exps):
-                k *= self.koefs[exp]**exp_factor
+                koeff *= self.koefs[exp]**exp_factor
                 total_exp += exp*exp_factor
-            new_koeffs[total_exp] += k
+            new_koeffs[total_exp] += koeff
         return Polynom(new_koeffs)
 
     def apply(self, x):
@@ -142,7 +142,7 @@ class Polynom:
             return [result[0]]
         return result
 
-    def smallest_root_bisect(self, x_range: Interval, n_steps=1000, return_smallest=True) -> List[float]:
+    def smallest_root_bisect(self, x_range: Interval, n_steps=100, return_smallest=True) -> List[float]:
         """
         find roots using the bisection method
         """

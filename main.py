@@ -1,11 +1,28 @@
 from __future__ import annotations
+import math
 import time
 import pygame
 from pygame.math import Vector2
 from ball import Ball
 from form import CircleForm, FormHandler, LineForm
 from interval import SimpleInterval
+from polynom import Polynom
 from vec import Vec
+
+def sin(k):
+    x = Polynom([0, 1])
+    sum = Polynom([0])
+    for i in range(k):
+        a = [0,1,0,-1][i%4]
+        sum += (x**i)*(a/math.factorial(i))
+    return sum
+def cos(k):
+    x = Polynom([0, 1])
+    sum = Polynom([0])
+    for i in range(k):
+        a = [1,0,-1,0][i%4]
+        sum += (x**i)*(a/math.factorial(i))
+    return sum
 
 
 render = True
@@ -13,6 +30,7 @@ if render:
     # pygame setup
     pygame.init()
     screen = pygame.display.set_mode((1280, 720))
+
     clock = pygame.time.Clock()
     # clock.tick(60)  # limits FPS to 60
     running = True
@@ -39,13 +57,28 @@ if render:
     passed = (time.time_ns() - start_time)/(10**6)
     print(f"calculating took {passed} ms")
     print(f"coll_t: {coll.time}")
+    k = 0
     while running:
+        screen.fill("black")
         # poll for events
         # pygame.QUIT event means the user clicked X to close your window
+        passed = (time.time_ns() - start_time)/(10**(8))
+        
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 running = False
-
+        # draw sine line
+        pts = []
+        k = int(passed // 1)
+        f = sin(k)
+        for i in range(0,1280,1):
+            x = (i-640)/10
+            pts.append((i, 360+f.apply(x)*100))
+        pygame.draw.lines(screen, (255, 0, 0), False, pts, 1)
+        #print(f"pts: {pts}")
+        print(f"k: {k//2}")
+        pygame.display.flip()
+        continue
         # fill the screen with a color to wipe away anything from last frame
         screen.fill("black")
 
@@ -62,7 +95,9 @@ if render:
             if coll is None:
                 print("found no collision")
             else:
-                print(f"found coll: {coll.time}")
+                i += 1
+                print(f"found coll: {coll.time}, i: {i}")
+
 
         # screen.fill("black")
         # boden.draw(screen, (0, 255, 0))
@@ -73,7 +108,6 @@ if render:
         ball.draw(passed, screen)
         # flip() the display to put your work on screen
         pygame.display.flip()
-        i += 1
         clock.tick(60)
 
     pygame.quit()

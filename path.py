@@ -53,7 +53,7 @@ class CirclePath:
     def find_collision(self, ball: Ball) -> Collision | None:
         # TODO: restrict searched t by already found!
         t_range = self.bound.times_inside(ball)
-        check_eq = ((ball.bahn.x-self.pos.x)**2 +
+        check_eq: Polynom = ((ball.bahn.x-self.pos.x)**2 +
                     (ball.bahn.y-self.pos.y)**2 - (self.radius)**2)
         coll = check_eq.find_roots(
             t_range, return_smallest=True, do_numeric=True)

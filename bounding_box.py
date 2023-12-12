@@ -19,6 +19,7 @@ class BoundingBox:
 
         x0 = ball.pos_0.x
         x_colls = x_min_colls + x_max_colls  # .sort()
+        #x_colls.append(float("inf"))
         x_colls.sort()
         if x_colls is None or len(x_colls) == 0:
             return None
@@ -43,6 +44,7 @@ class BoundingBox:
 
         y_colls = y_min_colls + y_max_colls
         y_colls.sort()
+        y_colls.append(float("inf"))
         y0 = ball.pos_0.y
 
         prev_t = 0
