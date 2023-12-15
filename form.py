@@ -2,8 +2,10 @@ import math
 from typing import List
 import pygame
 from ball import Ball
+from collision import RotatedCollision
 from interval import SimpleInterval
 from path import CirclePath, LinePath, Path
+from polynom import Polynom
 from vec import Vec
 from abc import ABC, abstractmethod
 
@@ -13,6 +15,9 @@ class Form(ABC):
         self.paths = paths
     @abstractmethod
     def draw(self, screen, color):
+        pass
+    @abstractmethod
+    def get_points(self) -> List[Vec[float]]:
         pass
     def find_collision(self, ball: Ball):
         first_coll = None
@@ -79,6 +84,8 @@ class CircleForm(Form):
 
     def draw(self, screen, color):
         pygame.draw.lines(screen, color, False, self.points, width=3)
+    def get_points(self):
+        return map(lambda p: Vec(p[0], p[1]),self.points)
         #for kante in self.paths:
             # pygame.draw.circle(screen, color, kante, 50)
         #    kante.draw(screen, color)
@@ -103,8 +110,51 @@ class LineForm(Form):
         super().__init__(self.paths)
     def draw(self, screen, color):
         pygame.draw.line(screen, color, (self.pos1.x, self.pos1.y), (self.pos2.x, self.pos2.y), width=3)
+    def get_points(self):
+        return [self.pos1, self.pos2]
         #for path in self.paths:
             #path.draw(screen, color)
+class RotateForm:
+    """
+    Rotate a form around a point
+    This is done by rotating the ball trajectory
+    """
+    form: Form
+    center: Vec[float]
+    start_angle: float # the point which the form is rotated around
+    angle_speed: float
+    time_interval: SimpleInterval
+    def __init__(self, form: Form, center: Vec[float], start_angle: float, angle_speed: float, time_interval: SimpleInterval):
+        self.form = form
+        self.center = center
+        self.start_angle = start_angle
+        self.angle_speed = angle_speed
+        self.time_interval = time_interval
+    def draw(self, screen: pygame.Surface, color, time: float = None):
+        if time is None:
+            return
+        angle = self.start_angle + self.angle_speed*time
+        
+        pts = self.form.get_points()
+        new_pts = map(lambda pt: pt.rotate(angle, self.center), pts)
+        new_pts = list(map(lambda pt: (pt.x, pt.y), new_pts))
+        pygame.draw.lines(screen, color, False, new_pts, width=3)
+    def find_collision(self, ball: Ball):
+        print(f"finding collision for rotateform, ball: {ball}")
+        # rotate the ball trajectory
+        t = Polynom([0,1])
+        # rotate the ball trajectory
+        bahn = ball.bahn.rotate_poly((t+ball.start_t)*(-self.angle_speed), self.center, 10)
+        print(f"bahn: {bahn}")
+        # calculate the collision
+        coll = self.form.find_collision(ball.with_bahn(bahn))
+        print(f"found coll: {coll}")
+        if coll is None:
+            return None
+        # calculate the objects angle at the time of collision
+        angle = self.start_angle + self.angle_speed*coll.time
+        return RotatedCollision(coll, -angle, self.center)
+        
 class FormHandler:
     forms: List[Form]
     def __init__(self):

@@ -3,7 +3,7 @@ import pygame
 from ball import Ball
 from bounding_box import BoundingBox
 from collision import Collision
-from interval import SimpleInterval
+from interval import Interval, SimpleInterval
 
 from polynom import Polynom
 from vec import Vec
@@ -84,9 +84,9 @@ class LinePath:
     def draw(self, screen, color):
         pygame.draw.line(screen, color, (self.pos1.x, self.pos1.y), (self.pos2.x, self.pos2.y), width=1)
 
-    def find_collision(self, ball: Ball) -> Collision | None:
+    def find_collision(self, ball: Ball, interval: Interval = SimpleInterval(0.0, 100)) -> Collision | None:
         coll_eq: Polynom = self.eq_x.apply(ball.bahn.y) - self.eq_y.apply(ball.bahn.x)
-        colls = coll_eq.find_roots(SimpleInterval(0,float("inf")),return_smallest=False)
+        colls = coll_eq.find_roots(interval,return_smallest=False, do_numeric=True)
         
         min_t = float("inf")
         for coll in colls:

@@ -43,7 +43,8 @@ class SimpleInterval(Interval):
 
     def check(self, v: float):
         return ((self.l_inclusive and v >= self.min) or (v > self.min)) and ((self.r_inclusive and v <= self.max) or (v < self.max))
-
+    def lerp(self, t: float, min_t: float, max_t: float):
+        return self.min + (self.max-self.min)*(t-min_t)/(max_t-min_t)
     def step_through(self, n_steps: int) -> Iterator[float]:
         step_size = (self.max-self.min)/n_steps
         for i in range(n_steps):

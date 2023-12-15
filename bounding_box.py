@@ -10,12 +10,12 @@ class BoundingBox:
 
     def times_inside(self, ball: Ball) -> MultiInterval | None:
         # find when ball enters/exits range
-        rpos = SimpleInterval(0, float("inf"))  # positive real
+        rpos = SimpleInterval(0, 100)  # positive real
         x_t_ranges = []
         x_min_colls = (
-            ball.bahn.x - (self.x_range.min - ball.radius)).find_roots(rpos)
+            ball.bahn.x - (self.x_range.min - ball.radius)).find_roots(rpos, do_numeric=True)
         x_max_colls = (
-            ball.bahn.x - (self.x_range.max + ball.radius)).find_roots(rpos)
+            ball.bahn.x - (self.x_range.max + ball.radius)).find_roots(rpos, do_numeric=True)
 
         x0 = ball.pos_0.x
         x_colls = x_min_colls + x_max_colls  # .sort()
@@ -38,9 +38,9 @@ class BoundingBox:
         # x_t_ranges.append(Range(prev_t, self.x_range.max))
 
         y_min_colls = (
-            ball.bahn.y - (self.y_range.min - ball.radius)).find_roots(rpos)
+            ball.bahn.y - (self.y_range.min - ball.radius)).find_roots(rpos, do_numeric=True)
         y_max_colls = (
-            ball.bahn.y - (self.y_range.max + ball.radius)).find_roots(rpos)
+            ball.bahn.y - (self.y_range.max + ball.radius)).find_roots(rpos, do_numeric=True)
 
         y_colls = y_min_colls + y_max_colls
         y_colls.sort()

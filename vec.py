@@ -1,8 +1,9 @@
 from __future__ import annotations
 import math
-from typing import Generic, Tuple, TypeVar
+from typing import Generic, Self, Tuple, TypeVar
 
 from polynom import Polynom
+from taylor import cos_taylor, sin_taylor
 
 T = TypeVar("T")
 
@@ -73,3 +74,19 @@ class Vec(Generic[T]):
         return self.x*other.x + self.y*other.y
     def orhtogonal(self) -> Vec:
         return Vec(-self.y, self.x)
+    def rotate(self, angle: float, center: Vec) -> Vec:
+        """
+        rotate self around center by angle
+        """
+        this_offset = self-center
+        this_offset_rot = Vec(this_offset.x*math.cos(angle) + this_offset.y*math.sin(angle), -this_offset.x*math.sin(angle) + this_offset.y*math.cos(angle))
+        return this_offset_rot + center
+    def rotate_poly(self, angle: Polynom, center: Vec, taylor_approx: int) -> Vec:
+        """
+        rotate self around center by angle
+        """
+        sin_poly = sin_taylor(taylor_approx)
+        cos_poly = cos_taylor(taylor_approx)
+        this_offset = self-center
+        this_offset_rot = Vec(this_offset.x*cos_poly.apply(angle) + this_offset.y*sin_poly.apply(angle), -this_offset.x*sin_poly.apply(angle) + this_offset.y*cos_poly.apply(angle))
+        return this_offset_rot + center

@@ -43,6 +43,13 @@ class Polynom:
         return self + (-other)
 
     def __mul__(self, other: int | float):
+        if isinstance(other, Polynom):
+            x = Polynom([0, 1])
+            new_poly = Polynom([0])
+            for (i_own, k_own) in enumerate(self.koefs):
+                for (i_other, k_other) in enumerate(other.koefs):
+                    new_poly += (x**(i_own+i_other))*(k_own*k_other)
+            return new_poly
         if not isinstance(other, numbers.Number):
             raise TypeError(f"got weird other: {other}, type: {type(other)}")
         new_koeffs: List[float | int] = [0]*len(self.koefs)
@@ -142,7 +149,7 @@ class Polynom:
             return [result[0]]
         return result
 
-    def smallest_root_bisect(self, x_range: Interval, n_steps=100, return_smallest=True) -> List[float]:
+    def smallest_root_bisect(self, x_range: Interval, n_steps=1000, return_smallest=True) -> List[float]:
         """
         find roots using the bisection method
         """

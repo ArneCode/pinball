@@ -52,7 +52,10 @@ class Ball:
         new.pos_0 = pos
         new.update_bahn()
         return new
-
+    def with_bahn(self, bahn: Vec[Polynom]):
+        new = copy.copy(self)
+        new.bahn = bahn
+        return new
     def with_start_t(self, start_t: float):
         new = copy.copy(self)
         new.start_t = start_t
