@@ -1,5 +1,5 @@
 from enum import Enum, auto
-from typing import List
+from typing import List, Optional
 
 # there are different types of tokens
 class TokenType(Enum):
@@ -61,12 +61,12 @@ class CharStream:
         self.line = 1
         self.column = 1
 
-    def peek(self) -> str:
+    def peek(self) -> Optional[str]:
         if self.index >= len(self.string):
             return None
         return self.string[self.index]
 
-    def next(self) -> str:
+    def next(self) -> Optional[str]:
         if self.index >= len(self.string):
             return None
         char = self.string[self.index]
@@ -89,12 +89,12 @@ class TokenStream:
         self.tokens = tokens
         self.index = 0
 
-    def peek(self) -> Token:
+    def peek(self) -> Optional[Token]:
         if self.index >= len(self.tokens):
             return None
         return self.tokens[self.index]
 
-    def next(self) -> Token:
+    def next(self) -> Optional[Token]:
         if self.index >= len(self.tokens):
             return None
         token = self.tokens[self.index]
@@ -113,67 +113,83 @@ class __Lexer:
     stream: CharStream
     alphabet: str
     num_sep: str
-    symbols: str
+    symbol_chars: str
+    multi_symbols: List[str]
 
     tokens: List[Token]
 
-    def __init__(self, text: str, alphabet: str, num_sep: str, symbols: str):
+    def __init__(self, text: str, alphabet: str, num_sep: str, symbol_chars: str, multi_symbols: List[str]):
         self.stream = CharStream(text)
         self.alphabet = alphabet
         self.num_sep = num_sep
-        self.symbols = symbols
+        self.symbol_chars = symbol_chars
+        self.multi_symbols = multi_symbols
         self.tokens = []
     
-    def lex_word(self) -> Token:
+    def lex_word(self):
         word = ""
         start_pos = self.stream.get_pos()
         while True:
             char = self.stream.peek()
             if char is None or (char not in self.alphabet and not char.isdigit()) or is_whitespace(char):
                 break
-            word += self.stream.next()
+            word += char
+            self.stream.next()
         end_pos = self.stream.get_pos()
         self.tokens.append(Token(TokenType.WORD, word, CodeSlice(start_pos, end_pos)))
-    def lex_number(self) -> Token:
+    def lex_number(self):
         number = ""
         start_pos = self.stream.get_pos()
         while True:
             char = self.stream.peek()
-            if char is None or is_whitespace(char) or char in self.symbols:
+            if char is None or is_whitespace(char) or char in self.symbol_chars:
                 break
             if char != self.num_sep and not char.isdigit():
                 raise LexerError(f"Invalid number character '{char}', maybe add a space", self.stream.get_pos())
-            number += self.stream.next()
+            number += char
+            self.stream.next()
         end_pos = self.stream.get_pos()
         self.tokens.append(Token(TokenType.NUMBER, number, CodeSlice(start_pos, end_pos)))
-    def lex_whitespace(self) -> Token:
+    def lex_whitespace(self):
         while True:
             char = self.stream.peek()
             if char is None or not is_whitespace(char):
                 break
             self.stream.next()
-    def lex_symbol(self) -> Token:
+    def lex_symbol(self):
         start_pos = self.stream.get_pos()
-        char = self.stream.next()
+        symbol = self.stream.next()
+        assert symbol is not None
+        while True:
+            next_char = self.stream.peek()
+            if next_char is None or next_char not in self.symbol_chars:
+                break
+            assert next_char is not None
+            new_symbol = symbol + next_char
+            if new_symbol not in self.multi_symbols:
+                break
+            symbol += next_char
+            self.stream.next()
         end_pos = self.stream.get_pos()
-        self.tokens.append(Token(TokenType.SYMBOL, char, CodeSlice(start_pos, end_pos)))
+        self.tokens.append(Token(TokenType.SYMBOL, symbol, CodeSlice(start_pos, end_pos)))
     def lex(self) -> List[Token]:
         while not self.stream.is_eof():
             char = self.stream.peek()
+            assert char is not None
             if char in self.alphabet:
                 self.lex_word()
             elif char.isdigit():
                 self.lex_number()
-            elif char in self.symbols:
+            elif char in self.symbol_chars:
                 self.lex_symbol()
             elif is_whitespace(char):
                 self.lex_whitespace()
             else:
                 raise LexerError(f"Unknown character '{char}'", self.stream.get_pos())
         return self.tokens
-def lex(string: str, symbols: str, num_sep: str = "." , alphabet: str = "abcdefghijklmnopqrstuvwxyz_ABCDEFGHIJKLMNOPQRSTUVWXYZ") -> List[Token]:
-    lexer = __Lexer(string, alphabet, num_sep, symbols)
+def lex(string: str, symbol_chars: str, multi_symbols: List[str] = [], num_sep: str = "." , alphabet: str = "abcdefghijklmnopqrstuvwxyz_ABCDEFGHIJKLMNOPQRSTUVWXYZ") -> List[Token]:
+    lexer = __Lexer(string, alphabet, num_sep, symbol_chars, multi_symbols)
     return lexer.lex()
 
 if __name__ == "__main__":
-    print(lex("hello wOrld_2_a + 3 - 4 a", symbols="+-*/"))
+    print(lex("hello wOrld_2_a + 3 - 4 a", symbol_chars="+-*/"))
