@@ -6,14 +6,34 @@ class TokenType(Enum):
     WORD = auto()
     NUMBER = auto()
     SYMBOL = auto()
+    STRING = auto()
+class bcolors:
+    HEADER = '\033[95m'
+    OKBLUE = '\033[94m'
+    OKCYAN = '\033[96m'
+    OKGREEN = '\033[92m'
+    WARNING = '\033[93m'
+    FAIL = '\033[91m'
+    ENDC = '\033[0m'
+    BOLD = '\033[1m'
+    UNDERLINE = '\033[4m'
+
 class CodePos:
     line: int
     column: int
+    text: str
 
-    def __init__(self, line: int, column: int):
+    def __init__(self, line: int, column: int, text: str):
         self.line = line
         self.column = column
+        self.text = text
 
+    def highlight(self) -> str:
+        lines = self.text.split("\n")
+        line = lines[self.line - 1]
+        before = line[:self.column - 1]
+        after = line[self.column - 1:]
+        return before + bcolors.FAIL + line[self.column] + bcolors.ENDC + after
     def __repr__(self):
         return f"CodePos({self.line}, {self.column})"
     
@@ -26,6 +46,32 @@ class CodeSlice:
     def __init__(self, start: CodePos, end: CodePos):
         self.start = start
         self.end = end
+
+    def highlight(self) -> str:
+        lines = self.start.text.split("\n")
+        start_line = lines[self.start.line - 1]
+        # lines, without start and end line
+
+        if self.start.line == self.end.line:
+            before = start_line[:self.start.column - 1]
+            middle = start_line[self.start.column - 1:self.end.column - 1]
+            after = start_line[self.end.column - 1:]
+            return before + bcolors.FAIL + middle + bcolors.ENDC + after
+        
+        middle_lines = lines[self.start.line + 1:self.end.line]
+        end_line = lines[self.end.line - 1]
+        before_start = start_line[:self.start.column - 1]
+        after_start = start_line[self.start.column - 1:]
+        before_end = end_line[:self.end.column - 1]
+        after_end = end_line[self.end.column:]
+       # print(f"before_start: {before_start}, after_start: {after_start}, before_end: {before_end}, after_end: {after_end}")
+        
+        result = ""
+        result += before_start + bcolors.FAIL + after_start + "\n"
+        for line in middle_lines:
+            result += line + "\n"
+        result += before_end + bcolors.ENDC + after_end
+        return result
 
     def __repr__(self):
         return f"CodeSlice({self.start}, {self.end})"
@@ -78,7 +124,7 @@ class CharStream:
         self.index += 1
         return char
     def get_pos(self) -> CodePos:
-        return CodePos(self.line, self.column)
+        return CodePos(self.line, self.column, self.string)
     def is_eof(self) -> bool:
         return self.index >= len(self.string)
 class TokenStream:
@@ -105,7 +151,7 @@ class TokenStream:
 # lexer error
 class LexerError(Exception):
     def __init__(self, message: str, pos: CodePos):
-        super().__init__(f"Lexer error at {pos}: {message}")
+        super().__init__(f"Lexer error at {pos}: {message} + \n {pos.highlight()}")
         self.pos = pos
 def is_whitespace(char: str) -> bool:
     return char in [" ", "\t", "\n"]
@@ -115,15 +161,17 @@ class __Lexer:
     num_sep: str
     symbol_chars: str
     multi_symbols: List[str]
+    str_chars: str
 
     tokens: List[Token]
 
-    def __init__(self, text: str, alphabet: str, num_sep: str, symbol_chars: str, multi_symbols: List[str]):
+    def __init__(self, text: str, alphabet: str, num_sep: str, symbol_chars: str, multi_symbols: List[str], str_chars: str):
         self.stream = CharStream(text)
         self.alphabet = alphabet
         self.num_sep = num_sep
         self.symbol_chars = symbol_chars
         self.multi_symbols = multi_symbols
+        self.str_chars = str_chars
         self.tokens = []
     
     def lex_word(self):
@@ -172,6 +220,30 @@ class __Lexer:
             self.stream.next()
         end_pos = self.stream.get_pos()
         self.tokens.append(Token(TokenType.SYMBOL, symbol, CodeSlice(start_pos, end_pos)))
+    def lex_string(self):
+        # string can be escaped with \" or \' and enclosed in "" or ''
+        string = ""
+        start_pos = self.stream.get_pos()
+        quote = self.stream.next()
+        assert quote is not None
+        while True:
+            char = self.stream.next()
+            if char is None:
+                raise LexerError("Unexpected EOF", self.stream.get_pos())
+            if char == quote:
+                break
+            if char == "\\":
+                next_char = self.stream.next()
+                if next_char is None:
+                    raise LexerError("Unexpected EOF", self.stream.get_pos())
+                if next_char == quote:
+                    char = quote
+                else:
+                    char = "\\" + next_char
+            string += char
+        end_pos = self.stream.get_pos()
+        self.tokens.append(Token(TokenType.STRING, string, CodeSlice(start_pos, end_pos)))
+
     def lex(self) -> List[Token]:
         while not self.stream.is_eof():
             char = self.stream.peek()
@@ -184,11 +256,13 @@ class __Lexer:
                 self.lex_symbol()
             elif is_whitespace(char):
                 self.lex_whitespace()
+            elif char in self.str_chars:
+                self.lex_string()
             else:
                 raise LexerError(f"Unknown character '{char}'", self.stream.get_pos())
         return self.tokens
-def lex(string: str, symbol_chars: str, multi_symbols: List[str] = [], num_sep: str = "." , alphabet: str = "abcdefghijklmnopqrstuvwxyz_ABCDEFGHIJKLMNOPQRSTUVWXYZ") -> List[Token]:
-    lexer = __Lexer(string, alphabet, num_sep, symbol_chars, multi_symbols)
+def lex(string: str, symbol_chars: str, multi_symbols: List[str] = [], num_sep: str = "." , alphabet: str = "abcdefghijklmnopqrstuvwxyz_ABCDEFGHIJKLMNOPQRSTUVWXYZ", str_chars = "\"'") -> List[Token]:
+    lexer = __Lexer(string, alphabet, num_sep, symbol_chars, multi_symbols, str_chars)
     return lexer.lex()
 
 if __name__ == "__main__":

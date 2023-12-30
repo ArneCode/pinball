@@ -1,57 +1,32 @@
-from abc import ABC
-from typing import List, Optional
+from __future__ import annotations
+from abc import ABC, abstractmethod
+from typing import Generic, List, Optional, TypeVar
 
 
+
+T = TypeVar('T')
 class Node(ABC):
-    pass
+    @abstractmethod
+    def accept(self, visitor: NodeVisitor[T]) -> T:
+        pass
+
+    def __str__(self) -> str:
+        from tostring_visitor import ToStringVisitor
+        return self.accept(ToStringVisitor())
 
 
-class PlusNode(Node):
+class TwoSideOpNode(Node):
     left: Node
     right: Node
+    sign: str
 
-    def __init__(self, left: Node, right: Node):
+    def __init__(self,sign: str,  left: Node, right: Node):
+        self.sign = sign
         self.left = left
         self.right = right
 
-    def __str__(self) -> str:
-        return f"({self.right} + {self.left})"
-
-
-class MinusNode(Node):
-    left: Node
-    right: Node
-
-    def __init__(self, left: Node, right: Node):
-        self.left = left
-        self.right = right
-
-    def __str__(self) -> str:
-        return f"({self.left} - {self.right})"
-
-
-class TimesNode(Node):
-    left: Node
-    right: Node
-
-    def __init__(self, left: Node, right: Node):
-        self.left = left
-        self.right = right
-
-    def __str__(self) -> str:
-        return f"({self.left} * {self.right})"
-
-
-class DivNode(Node):
-    left: Node
-    right: Node
-
-    def __init__(self, left: Node, right: Node):
-        self.left = left
-        self.right = right
-
-    def __str__(self) -> str:
-        return f"({self.left} / {self.right})"
+    def accept(self, visitor: NodeVisitor[T]) -> T:
+        return visitor.visit_two_side_op(self)
 
 
 class NumberNode(Node):
@@ -59,9 +34,9 @@ class NumberNode(Node):
 
     def __init__(self, value: float):
         self.value = value
-
-    def __str__(self) -> str:
-        return str(self.value)
+    
+    def accept(self, visitor: NodeVisitor[T]) -> T:
+        return visitor.visit_number(self)
 
 
 class WordNode(Node):
@@ -70,18 +45,26 @@ class WordNode(Node):
     def __init__(self, word: str):
         self.word = word
 
-    def __str__(self) -> str:
-        return self.word
+    def accept(self, visitor: NodeVisitor[T]) -> T:
+        return visitor.visit_word(self)
 
+class StringNode(Node):
+    string: str
+
+    def __init__(self, string: str):
+        self.string = string
+
+    def accept(self, visitor: NodeVisitor[T]) -> T:
+        return visitor.visit_string(self)
 
 class SymbolNode(Node):
     symbol: str
 
     def __init__(self, symbol: str):
         self.symbol = symbol
-
-    def __str__(self) -> str:
-        return self.symbol
+    
+    def accept(self, visitor: NodeVisitor[T]) -> T:
+        return visitor.visit_symbol(self)
 
 
 class VarNode(Node):
@@ -90,8 +73,8 @@ class VarNode(Node):
     def __init__(self, name: str):
         self.name = name
 
-    def __str__(self) -> str:
-        return self.name
+    def accept(self, visitor: NodeVisitor[T]) -> T:
+        return visitor.visit_var(self)
 
 
 class AssignNode(Node):
@@ -101,9 +84,9 @@ class AssignNode(Node):
     def __init__(self, var: VarNode, value: Node):
         self.var = var
         self.value = value
-
-    def __str__(self) -> str:
-        return f"{self.var} = {self.value}"
+    
+    def accept(self, visitor: NodeVisitor[T]) -> T:
+        return visitor.visit_assign(self)
 
 
 class FuncCallNode(Node):
@@ -113,9 +96,9 @@ class FuncCallNode(Node):
     def __init__(self, func: VarNode, arg: Node):
         self.func = func
         self.arg = arg
-
-    def __str__(self) -> str:
-        return f"{self.func}({self.arg})"
+    
+    def accept(self, visitor: NodeVisitor[T]) -> T:
+        return visitor.visit_func_call(self)
 
 
 class CodeBlockNode(Node):
@@ -123,9 +106,9 @@ class CodeBlockNode(Node):
 
     def __init__(self, statements: List[Node]):
         self.statements = statements
-
-    def __str__(self) -> str:
-        return "{\n" + "; \n".join(map(str, self.statements)) + "}"
+    
+    def accept(self, visitor: NodeVisitor[T]) -> T:
+        return visitor.visit_code_block(self)
 
 
 class VarDefNode(Node):
@@ -135,9 +118,9 @@ class VarDefNode(Node):
     def __init__(self, name: str, value: Optional[Node] = None):
         self.name = name
         self.value = value
-
-    def __str__(self) -> str:
-        return f"let {self.name} = {self.value}"
+    
+    def accept(self, visitor: NodeVisitor[T]) -> T:
+        return visitor.visit_var_def(self)
 
 
 class IfNode(Node):
@@ -153,54 +136,67 @@ class IfNode(Node):
         self.elif_conds = elif_conds
         self.elif_blocks = elif_blocks
         self.else_block = else_block
+    
+    def accept(self, visitor: NodeVisitor[T]) -> T:
+        return visitor.visit_if(self)
 
-    def __str__(self) -> str:
-        return f"if ({self.condition}) {self.then_block} {' '.join(map(lambda x: f'else if ({x[0]}) {x[1]}', zip(self.elif_conds, self.elif_blocks)))} {'else ' + str(self.else_block) if self.else_block else ''}"
+class whileNode(Node):
+    condition: Node
+    then_block: CodeBlockNode
 
+    def __init__(self, condition: Node, then_block: CodeBlockNode):
+        self.condition = condition
+        self.then_block = then_block
+    
+    def accept(self, visitor: NodeVisitor[T]) -> T:
+        return visitor.visit_while(self)
 
-class EqNode(Node):
-    left: Node
-    right: Node
+# Had To place this in this file because of circular imports. Otherwise I couldn't use type hinting in nodevisitor.py
+class NodeVisitor(Generic[T], ABC):
+    @abstractmethod
+    def visit_two_side_op(self, node: TwoSideOpNode) -> T:
+        pass
+    
+    @abstractmethod
+    def visit_code_block(self, node: CodeBlockNode) -> T:
+        pass
 
-    def __init__(self, left: Node, right: Node):
-        self.left = left
-        self.right = right
+    @abstractmethod
+    def visit_if(self, node: IfNode) -> T:
+        pass
 
-    def __str__(self) -> str:
-        return f"{self.left} == {self.right}"
+    @abstractmethod
+    def visit_word(self, node: WordNode) -> T:
+        pass
 
+    @abstractmethod
+    def visit_string(self, node: StringNode) -> T:
+        pass
 
-class LessOrEqNode(Node):
-    left: Node
-    right: Node
+    @abstractmethod
+    def visit_symbol(self, node: SymbolNode) -> T:
+        pass
 
-    def __init__(self, left: Node, right: Node):
-        self.left = left
-        self.right = right
+    @abstractmethod
+    def visit_number(self, node: NumberNode) -> T:
+        pass
 
-    def __str__(self) -> str:
-        return f"{self.left} <= {self.right}"
+    @abstractmethod
+    def visit_var(self, node: VarNode) -> T:
+        pass
 
+    @abstractmethod
+    def visit_var_def(self, node: VarDefNode) -> T:
+        pass
 
-class GreaterOrEqNode(Node):
-    left: Node
-    right: Node
+    @abstractmethod
+    def visit_assign(self, node: AssignNode) -> T:
+        pass
 
-    def __init__(self, left: Node, right: Node):
-        self.left = left
-        self.right = right
+    @abstractmethod
+    def visit_func_call(self, node: FuncCallNode) -> T:
+        pass
 
-    def __str__(self) -> str:
-        return f"{self.left} >= {self.right}"
-
-
-class NeqNode(Node):
-    left: Node
-    right: Node
-
-    def __init__(self, left: Node, right: Node):
-        self.left = left
-        self.right = right
-
-    def __str__(self) -> str:
-        return f"{self.left} != {self.right}"
+    @abstractmethod
+    def visit_while(self, node: whileNode) -> T:
+        pass

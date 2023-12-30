@@ -4,16 +4,21 @@ from types import UnionType
 from typing import Any, Callable, Dict, List, Optional, TypeVar, Generic
 from abc import ABC, abstractmethod
 
-from lexer import TokenStream, lex, TokenType
+from lexer import CodeSlice, TokenStream, lex, TokenType
 
 
 NodeT = TypeVar("NodeT")
+
 
 class Grammar(ABC):
     @abstractmethod
     def check(self, tokens: TokenStream) -> bool:
         pass
-    
+
+    @abstractmethod
+    def is_single_token(self) -> bool:
+        pass
+
 
 class Matcher(Grammar, Generic[NodeT]):
     @abstractmethod
@@ -23,6 +28,7 @@ class Matcher(Grammar, Generic[NodeT]):
     def __or__(self, other: Matcher) -> OneOfMatcher[NodeT]:
         return OneOfMatcher([self, other])
 
+
 class Parser(Grammar, Generic[NodeT]):
     @abstractmethod
     def parse(self, tokens: TokenStream) -> NodeT:
@@ -31,8 +37,15 @@ class Parser(Grammar, Generic[NodeT]):
     def __or__(self, other: Parser) -> OneOfParser[NodeT]:
         return OneOfParser([self, other])
 
-class SingleTokenGrammar(Grammar):
-    pass
+class ParserError(Exception):
+    slice: Optional[CodeSlice]
+    
+    def __init__(self, message: str, slice: Optional[CodeSlice]= None):
+        if slice is None:
+            super().__init__(f"Parser error: {message}")
+        else:
+            super().__init__(f"Parser error at {slice.start}: {message}, \n {slice.highlight()}")
+        self.slice = slice
 
 class Capture(Parser, Generic[NodeT]):
     item: Optional[Matcher]
@@ -45,11 +58,8 @@ class Capture(Parser, Generic[NodeT]):
     def set(self, item: Matcher):
         self.item = item
 
-
     def check(self, tokens: TokenStream) -> bool:
-        if self.item is None:
-            raise Exception(
-                f"Capture must have an item")
+        assert self.item is not None
         return self.item.check(tokens)
 
     def parse(self, tokens: TokenStream) -> NodeT:
@@ -58,6 +68,13 @@ class Capture(Parser, Generic[NodeT]):
         assert self.func is not None
         result = self.func(matched_dict)
         return result
+
+    def is_single_token(self) -> bool:
+        assert self.item is not None
+        return self.item.is_single_token()
+
+    def __str__(self) -> str:
+        return f"Capture({self.item})"
 
 
 class OneOfParser(Parser, Generic[NodeT]):
@@ -81,8 +98,19 @@ class OneOfParser(Parser, Generic[NodeT]):
         for choice in self.choices:
             if choice.check(tokens):
                 return choice.parse(tokens)
-        raise Exception("parse error")
-    
+        next_token = tokens.peek()
+        if tokens.is_eof():
+            raise ParserError("unexpected end of file")
+        assert next_token is not None
+        raise ParserError(f"unexpected token {next_token.value}", next_token.slice)
+
+    def is_single_token(self) -> bool:
+        for choice in self.choices:
+            if not choice.is_single_token():
+                return False
+        return True
+
+
 class OneOfMatcher(Matcher, Generic[NodeT]):
     choices: List[Matcher]
 
@@ -106,7 +134,18 @@ class OneOfMatcher(Matcher, Generic[NodeT]):
         for choice in self.choices:
             if choice.check(tokens):
                 return choice.match(tokens, dict)
-        raise Exception("match error")
+        next_token = tokens.peek()
+        if tokens.is_eof():
+            raise ParserError("unexpected end of file")
+        assert next_token is not None
+        raise ParserError(f"unexpected token {next_token.value}", next_token.slice)
+
+    def is_single_token(self) -> bool:
+        for choice in self.choices:
+            if not choice.is_single_token():
+                return False
+        return True
+
 
 class Sequence(Matcher):
     items: List[Matcher]
@@ -118,22 +157,35 @@ class Sequence(Matcher):
         self.items = items
 
     def check(self, tokens: TokenStream) -> bool:
-        # checking in later items in advance is not possible, because 
-        # it is unknown how many tokens will be consumed by the first items
-        return self.items[0].check(tokens)
+        # checking in later items in advance is only possible for fixed sized grammars, because
+        # otherwise it is unknown how many tokens will be consumed by the first items
+
+        tokens_copy = copy.copy(tokens)
+        i = 0
+        for item in self.items:
+            if not item.check(tokens_copy):
+                return False
+            if not item.is_single_token():
+                break
+            tokens_copy.next()
+            i += 1
+        return True
 
     def match(self, tokens: TokenStream, dict: Dict) -> Dict:
         assert isinstance(dict, Dict)
-
         for item in self.items:
-
             if not item.check(tokens):
-                raise Exception(
-                    f"match error, expected {item}, got {tokens.peek()}")
+                next = tokens.peek()
+                if next is None:
+                    raise ParserError("unexpected end of file")
+                raise ParserError(f"unexpected token {next.value}", next.slice)
             dict = item.match(tokens, dict)
             assert isinstance(dict, Dict)
 
         return dict
+
+    def is_single_token(self) -> bool:
+        return False
 
 
 class Maybe(Matcher):
@@ -149,11 +201,14 @@ class Maybe(Matcher):
         return True
 
     def match(self, tokens: TokenStream, dict: Dict) -> dict:
-        assert isinstance(dict, Dict)
 
         if self.item.check(tokens):
             return self.item.match(tokens, dict)
         return dict
+
+    def is_single_token(self) -> bool:
+        return False
+
 
 class Multiple(Matcher):
     item: Matcher
@@ -170,20 +225,19 @@ class Multiple(Matcher):
         return True
 
     def match(self, tokens: TokenStream, dict: Dict) -> dict:
-        assert isinstance(dict, Dict)
         i = 0
-        while self.item.check(tokens): 
+        while self.item.check(tokens):
             new_dict = self.item.match(tokens, {})
             for key in new_dict:
                 if self.pattern in key:
                     new_key = key.replace(self.pattern, str(i))
-                    #new_dict[new_key] = new_dict[key]
-                    #del new_dict[key]
                     dict[new_key] = new_dict[key]
-            #dict.update(new_dict)
-            assert isinstance(dict, Dict)
             i += 1
         return dict
+
+    def is_single_token(self) -> bool:
+        return False
+
 
 class Labeled(Matcher):
     label: str
@@ -200,14 +254,15 @@ class Labeled(Matcher):
         return self.item.check(tokens)
 
     def match(self, tokens: TokenStream, dict: Dict) -> dict:
-        assert isinstance(dict, Dict)
         node = self.item.parse(tokens)
-        print(f"dict: {dict}, conte, label: {self.label}, node: {node}")
         dict[self.label] = node
         return dict
 
+    def is_single_token(self) -> bool:
+        return self.item.is_single_token()
 
-class AnyWord(Parser, SingleTokenGrammar, Generic[NodeT]):
+
+class AnyWord(Parser, Generic[NodeT]):
     nodeConstructor: Callable[[str], NodeT]
 
     def __init__(self, nodeConstructor: Callable[[str], NodeT]):
@@ -218,13 +273,16 @@ class AnyWord(Parser, SingleTokenGrammar, Generic[NodeT]):
         if next is None:
             return False
         return next.type == TokenType.WORD
-        #return (not tokens.is_eof()) and tokens.peek().type == TokenType.WORD
+        # return (not tokens.is_eof()) and tokens.peek().type == TokenType.WORD
 
     def parse(self, tokens: TokenStream) -> NodeT:
         assert self.nodeConstructor is not None
         next = tokens.next()
         assert next is not None
         return self.nodeConstructor(next.value)
+
+    def is_single_token(self) -> bool:
+        return True
 
 
 class AnyNumber(Parser, Generic[NodeT]):
@@ -245,6 +303,32 @@ class AnyNumber(Parser, Generic[NodeT]):
         assert next is not None
         return self.nodeConstructor(float(next.value))
 
+    def is_single_token(self) -> bool:
+        return True
+
+
+class AnyString(Parser, Generic[NodeT]):
+    nodeConstructor: Callable[[str], NodeT]
+
+    def __init__(self, nodeConstructor: Callable[[str], NodeT]):
+        self.nodeConstructor = nodeConstructor
+
+    def check(self, tokens: TokenStream) -> bool:
+        next = tokens.peek()
+        if next is None:
+            return False
+        return next.type == TokenType.STRING
+
+    def parse(self, tokens: TokenStream) -> NodeT:
+        assert self.nodeConstructor is not None
+        next = tokens.next()
+        assert next is not None
+        return self.nodeConstructor(next.value)
+
+    def is_single_token(self) -> bool:
+        return True
+
+
 class SymbolParser(Parser, Generic[NodeT]):
     symbol: str
     nodeConstructor: Callable[[str], NodeT]
@@ -264,35 +348,43 @@ class SymbolParser(Parser, Generic[NodeT]):
 
     def parse(self, tokens: TokenStream) -> NodeT:
         next = tokens.next()
+        
         assert next is not None
         if next.value != self.symbol:
-            raise Exception("expected symbol")
+            raise ParserError(f"expected symbol {self.symbol}, got {next.value}", next.slice)
         return self.nodeConstructor(next.value)
+
+    def is_single_token(self) -> bool:
+        return True
+
 
 class Symbol(Matcher):
     symbol: str
 
     def __init__(self, symbol: str):
         self.symbol = symbol
-    
+
     def __str__(self) -> str:
         return self.symbol
-    
+
     def check(self, tokens: TokenStream) -> bool:
         next = tokens.peek()
         if next is None:
             return False
         return next.value == self.symbol
-    
+
     def match(self, tokens: TokenStream, dict: Dict) -> Dict:
         assert isinstance(dict, Dict)
 
-        print(f"consuming symbol, {self.symbol}")
         next = tokens.next()
         assert next is not None
         if next.value != self.symbol:
-            raise Exception("expected symbol")
+            raise ParserError(f"expected symbol {self.symbol}, got {next.value}", next.slice)
         return dict
+
+    def is_single_token(self) -> bool:
+        return True
+
 
 class WordParser(Parser, Generic[NodeT]):
     word: str
@@ -315,58 +407,42 @@ class WordParser(Parser, Generic[NodeT]):
         next = tokens.next()
         assert next is not None
         if next.value != self.word:
-            raise Exception("expected word")
+            raise ParserError(f"expected word {self.word}, got {next.value}", next.slice)
         assert self.nodeConstructor is not None
         return self.nodeConstructor(next.value)
-    
+
+    def is_single_token(self) -> bool:
+        return True
+
+
 class Word(Matcher):
     word: str
 
     def __init__(self, word: str):
         self.word = word
-    
+
     def __str__(self) -> str:
         return self.word
-    
+
     def check(self, tokens: TokenStream) -> bool:
         next = tokens.peek()
         if next is None:
             return False
         return next.value == self.word
-    
+
     def match(self, tokens: TokenStream, dict: Dict) -> Dict:
         assert isinstance(dict, Dict)
 
-        print(f"consuming word, {self.word}")
         next = tokens.next()
         assert next is not None
         if next.value != self.word:
-            raise Exception("expected word")
+            raise ParserError(f"expected word {self.word}, got {next.value}", next.slice)
         return dict
-    
-class MultiWord(Matcher):
-    words: List[Word]
 
-    def __init__(self, words: List[Word]):
-        self.words = words
-
-    def __str__(self) -> str:
-        return " ".join(map(str, self.words))
-    
-    def check(self, tokens: TokenStream) -> bool:
-        tokens_copy = copy.copy(tokens)
-        for word in self.words:
-            if not word.check(tokens):
-                return False
-            tokens_copy.next()
+    def is_single_token(self) -> bool:
         return True
-    
-    def match(self, tokens: TokenStream, dict: Dict) -> Dict:
-        assert isinstance(dict, Dict)
 
-        for word in self.words:
-            dict = word.match(tokens, dict)
-        return dict
+
 
 if __name__ == "__main__":
     """
@@ -439,7 +515,7 @@ if __name__ == "__main__":
 
         def __str__(self) -> str:
             return self.word
-        
+
     class SymbolNode(Node):
         symbol: str
 
@@ -477,7 +553,7 @@ if __name__ == "__main__":
     anyNumber = AnyNumber(NumberNode)
 
     primary = anyWord | anyNumber | paren
-    #primary: Capture[Node] = Capture(AnyWord(WordNode) | AnyNumber(
+    # primary: Capture[Node] = Capture(AnyWord(WordNode) | AnyNumber(
     #    NumberNode) | Labeled(paren, "x"), func=lambda x: x["x"])
 
     mult = SymbolParser("*", SymbolNode)

@@ -1,32 +1,17 @@
 from abc import ABC
 from typing import Dict, List, Optional, TypeVar, cast
+from eval_visitor import EvalVisitor
 
-from grammar import AnyNumber, AnyWord, Capture, Labeled, Maybe, MultiWord, Multiple, Sequence, Symbol, SymbolParser, Word
+from grammar import AnyNumber, AnyString, AnyWord, Capture, Labeled, Maybe, Multiple, Sequence, Symbol, SymbolParser, Word
 from lexer import TokenStream, lex
-from node import Node, PlusNode, MinusNode, TimesNode, DivNode, NumberNode, SymbolNode, EqNode, LessOrEqNode, GreaterOrEqNode, NeqNode, VarNode, VarDefNode, AssignNode, FuncCallNode, CodeBlockNode, IfNode, WordNode
-
-
-
+from node import Node, NumberNode, StringNode, SymbolNode, TwoSideOpNode,  VarNode, VarDefNode, AssignNode, FuncCallNode, CodeBlockNode, IfNode, WordNode, whileNode
+from tostring_visitor import ToStringVisitor
 
 
 def parse_op(symbol: str, left: Node, right: Node):
-    if symbol == "+":
-        return PlusNode(left, right)
-    if symbol == "-":
-        return MinusNode(left, right)
-    if symbol == "*":
-        return TimesNode(left, right)
-    if symbol == "/":
-        return DivNode(left, right)
-    if symbol == "==":
-        return EqNode(left, right)
-    if symbol == "<=":
-        return LessOrEqNode(left, right)
-    if symbol == ">=":
-        return GreaterOrEqNode(left, right)
-    if symbol == "!=":
-        return NeqNode(left, right)
-    raise Exception("unknown symbol")
+    assert symbol in ["+", "-", "*", "/", "<", ">", "==", "!=", "<=", ">="]
+    return TwoSideOpNode(symbol, left, right)
+   # raise Exception("unknown symbol")
 
 
 def op_capture(x: Dict[str, Node]) -> Node:
@@ -69,8 +54,7 @@ def if_capture(x: Dict[str, Node]) -> IfNode:
         assert isinstance(else_block, CodeBlockNode)
         return IfNode(condition, then_block, elif_conds, cast(List[CodeBlockNode], elif_blocks), else_block)
 
-    return IfNode(condition, then_block, elif_conds, cast(List[CodeBlockNode], elif_blocks), None)    
-    
+    return IfNode(condition, then_block, elif_conds, cast(List[CodeBlockNode], elif_blocks), None)
 
 
 def var_capture(x: Dict[str, Node]) -> Node:
@@ -107,6 +91,13 @@ def func_call_capture(x: Dict[str, Node]) -> Node:
     return varNode
 
 
+def while_capture(x: Dict[str, Node]) -> Node:
+    condition = x["condition"]
+    then_block = x["body"]
+    assert isinstance(then_block, CodeBlockNode)
+    return whileNode(condition, then_block)
+
+
 def get_grammar():
     PLUS = SymbolParser("+", SymbolNode)
     MINUS = SymbolParser("-", SymbolNode)
@@ -116,11 +107,14 @@ def get_grammar():
     NEQ = SymbolParser("!=", SymbolNode)
     LEQ = SymbolParser("<=", SymbolNode)
     GEQ = SymbolParser(">=", SymbolNode)
+    LT = SymbolParser("<", SymbolNode)
+    GT = SymbolParser(">", SymbolNode)
 
     semicolon = Symbol(";")
 
     anyWord = AnyWord(WordNode)
     anyNumber = AnyNumber(NumberNode)
+    anyString = AnyString(StringNode)
 
     plusminus = Capture(func=op_capture)
     dotdiv = Capture(func=op_capture)
@@ -128,7 +122,7 @@ def get_grammar():
 
     IF = Word("if")
     ELSE = Word("else")
-    ELSE_IF = MultiWord([ELSE, IF])
+    WHILE = Word("while")
     LET = Word("let")
 
     expression = comparison
@@ -149,25 +143,23 @@ def get_grammar():
         ]))
     ]), func=assign_capture)
 
-    var_or_func_call: Capture[Node] = Capture(Sequence([
+    func_call: Capture[Node] = Capture(Sequence([
         Labeled(var, "var"),
-        Maybe(
-            Sequence([
-                Symbol("("),
-                Labeled(expression, "arg"),
-                Symbol(")")
-            ])
-        )
+        Symbol("("),
+        Labeled(expression, "arg"),
+        Symbol(")")
     ]), func=func_call_capture)
 
-    statement = var_def | var_or_func_call |  assignment
+    statement = var_def | func_call | assignment
 
     block = Capture(func=block_capture)
     if_statement = Capture(func=if_capture)
+    while_loop = Capture(func=while_capture)
     block.set(Sequence([
         Symbol("{"),
         Multiple(
             Labeled(if_statement, "statement{#id}")
+            | Labeled(while_loop, "statement{#id}")
             | Sequence([
                 Labeled(statement, "statement{#id}"),
                 semicolon
@@ -180,7 +172,8 @@ def get_grammar():
         Labeled(expression, "condition"),
         Labeled(block, "then_block"),
         Multiple(Sequence([
-            ELSE_IF,
+            ELSE,
+            IF,
             Labeled(expression, "elif_cond{#id}"),
             Labeled(block, "elif_block{#id}"),
         ])),
@@ -189,6 +182,11 @@ def get_grammar():
             Labeled(block, "else_block")
         ]))
     ]))
+    while_loop.set(Sequence([
+        WHILE,
+        Labeled(expression, "condition"),
+        Labeled(block, "body")
+    ]))
 
     paren: Capture[Node] = Capture(Sequence([
         Symbol("("),
@@ -196,7 +194,7 @@ def get_grammar():
         Symbol(")")
     ]), func=lambda x: x["x"])
 
-    primary = var | anyNumber | paren
+    primary = var | anyNumber | anyString | paren
 
     dotdiv.set(Sequence([
         Labeled(primary, "left"),
@@ -220,7 +218,7 @@ def get_grammar():
     comparison.set(Sequence([
         Labeled(plusminus, "left"),
         Maybe(Sequence([
-            Labeled(EQ | NEQ | LEQ | GEQ, "symbol"),
+            Labeled(EQ | NEQ | LEQ | GEQ | LT | GT, "symbol"),
             Labeled(plusminus, "right")
         ]))
     ]))
@@ -229,21 +227,43 @@ def get_grammar():
 
 
 def parse(code: str) -> Node:
-    tokens = lex(code, symbol_chars="+-*/(){};=",
-                 multi_symbols=["==", "<=", ">="])
+    tokens = lex(code, symbol_chars="+-*/(){};=<>!",
+                 multi_symbols=["==", "<=", ">=", "!="])
     stream = TokenStream(tokens)
     grammar = get_grammar()
     return grammar.parse(stream)
 
 
 if __name__ == "__main__":
-    #print(parse("{var_a*(3+var_b+c*2);}"))
+    # print(parse("{var_a*(3+var_b+c*2);}"))
     if True:
-        print(parse("""
+        parse("{print('test');}")
+        parsed = parse("""
         {
-                    let a = 1;
-                    if a == 1 {
-                        print(a);
-                    }
+            let a = 1;
+            let result = "";
+            if a == 1 {
+                result = result + "a";
+            } else if a == 2 {
+                result = result + "b";
+            } else if a == 3 {
+                result = result + "c";
+            }
+            else{
+                result = result + "d";
+            }
+            result = result + "e";
+            print("got result: " + result);
+            let i = 0;
+            while i < 10 {
+                print("i is " + i);
+                i = i + 1;
+            }
         }
-        """))
+        """)
+
+        text = parsed.accept(ToStringVisitor())
+        print(parsed)
+        print("result: ")
+        # evaluate
+        parsed.accept(EvalVisitor())
