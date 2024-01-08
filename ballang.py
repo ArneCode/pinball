@@ -4,7 +4,7 @@ from eval_visitor import EvalVisitor
 
 from grammar import AnyNumber, AnyString, AnyWord, Capture, Labeled, Maybe, Multiple, Sequence, Symbol, SymbolParser, Word
 from lexer import TokenStream, lex
-from node import Node, NumberNode, StringNode, SymbolNode, TwoSideOpNode,  VarNode, VarDefNode, AssignNode, FuncCallNode, CodeBlockNode, IfNode, WordNode, whileNode
+from node import CodeFileNode, FuncArgNode, FunctionDefNode, Node, NumberNode, ReturnNode, StringNode, SymbolNode, TwoSideOpNode,  VarNode, VarDefNode, AssignNode, FuncCallNode, CodeBlockNode, IfNode, WordNode, whileNode
 from tostring_visitor import ToStringVisitor
 
 
@@ -85,10 +85,8 @@ def assign_capture(x: Dict[str, Node]) -> Node:
 def func_call_capture(x: Dict[str, Node]) -> Node:
     varNode = x["var"]
     assert isinstance(varNode, VarNode)
-    if "arg" in x:
-        argNode = x["arg"]
-        return FuncCallNode(varNode, argNode)
-    return varNode
+    args = extract_multiple(x, "arg")
+    return FuncCallNode(varNode, args)
 
 
 def while_capture(x: Dict[str, Node]) -> Node:
@@ -97,6 +95,34 @@ def while_capture(x: Dict[str, Node]) -> Node:
     assert isinstance(then_block, CodeBlockNode)
     return whileNode(condition, then_block)
 
+
+def func_arg_capture(x: Dict[str, Node]) -> Node:
+    nameNode = x["name"]
+    assert isinstance(nameNode, WordNode)
+    return FuncArgNode(nameNode.word)
+
+
+def func_def_capture(x: Dict[str, Node]) -> Node:
+    nameNode = x["name"]
+    assert isinstance(nameNode, WordNode)
+    args = extract_multiple(x, "arg")
+    for arg in args:
+        assert isinstance(arg, FuncArgNode)
+    body = x["body"]
+    assert isinstance(body, CodeBlockNode)
+    return FunctionDefNode(nameNode.word, body, cast(List[FuncArgNode], args))
+
+
+def file_capture(x: Dict[str, Node]) -> Node:
+    functions = extract_multiple(x, "function")
+    for func in functions:
+        assert isinstance(func, FunctionDefNode)
+    return CodeFileNode(cast(List[FunctionDefNode], functions))
+
+def return_capture(x: Dict[str, Node]) -> Node:
+    if "value" in x:
+        return ReturnNode(x["value"])
+    return ReturnNode()
 
 def get_grammar():
     PLUS = SymbolParser("+", SymbolNode)
@@ -146,15 +172,23 @@ def get_grammar():
     func_call: Capture[Node] = Capture(Sequence([
         Labeled(var, "var"),
         Symbol("("),
-        Labeled(expression, "arg"),
+        Multiple(
+            Labeled(expression, "arg{#id}")
+        ),
         Symbol(")")
     ]), func=func_call_capture)
 
-    statement = var_def | func_call | assignment
+    return_ = Capture(Sequence([
+        Word("return"),
+        Maybe(Labeled(expression, "value"))
+    ]), func=return_capture)
+
+    statement = return_ | var_def | func_call | assignment
 
     block = Capture(func=block_capture)
     if_statement = Capture(func=if_capture)
     while_loop = Capture(func=while_capture)
+    function_def = Capture(func=func_def_capture)
     block.set(Sequence([
         Symbol("{"),
         Multiple(
@@ -187,14 +221,29 @@ def get_grammar():
         Labeled(expression, "condition"),
         Labeled(block, "body")
     ]))
+    func_arg = Capture(Sequence([
+        Labeled(anyWord, "name"),
+    ]), func=func_arg_capture)
+
+    function_def.set(Sequence([
+        Word("def"),
+        Labeled(anyWord, "name"),
+        Symbol("("),
+        Multiple(Labeled(func_arg, "arg{#id}")),
+        Symbol(")"),
+        Labeled(block, "body")
+    ]))
+
+    file = Capture(func=file_capture)
+    file.set(Multiple(Labeled(function_def, "function{#id}")))
 
     paren: Capture[Node] = Capture(Sequence([
         Symbol("("),
-        Labeled(plusminus, "x"),
+        Labeled(expression, "x"),
         Symbol(")")
     ]), func=lambda x: x["x"])
 
-    primary = var | anyNumber | anyString | paren
+    primary = func_call | var | anyNumber | anyString | paren
 
     dotdiv.set(Sequence([
         Labeled(primary, "left"),
@@ -223,7 +272,7 @@ def get_grammar():
         ]))
     ]))
 
-    return block
+    return file
 
 
 def parse(code: str) -> Node:
@@ -238,7 +287,8 @@ if __name__ == "__main__":
     # print(parse("{var_a*(3+var_b+c*2);}"))
     if True:
         parse("{print('test');}")
-        parsed = parse("""
+        text = """
+        def test()
         {
             let a = 1;
             let result = "";
@@ -260,10 +310,14 @@ if __name__ == "__main__":
                 i = i + 1;
             }
         }
-        """)
+        """
+        parsed = parse(text)
 
-        text = parsed.accept(ToStringVisitor())
+        #text = parsed.accept(ToStringVisitor())
+        #print(text)
         print(parsed)
-        print("result: ")
+        #print("result: ")
         # evaluate
-        parsed.accept(EvalVisitor())
+        from evaluate import evaluate
+        evaluate(text, "test")
+        #parsed.accept(EvalVisitor(entry_function="test"))

@@ -1,6 +1,6 @@
 from __future__ import annotations
 from abc import ABC, abstractmethod
-from typing import Generic, List, Optional, TypeVar
+from typing import Dict, Generic, List, Optional, TypeVar
 
 
 
@@ -91,11 +91,11 @@ class AssignNode(Node):
 
 class FuncCallNode(Node):
     func: VarNode
-    arg: Node
+    args: List[Node]
 
-    def __init__(self, func: VarNode, arg: Node):
+    def __init__(self, func: VarNode, args: List[Node]):
         self.func = func
-        self.arg = arg
+        self.args = args
     
     def accept(self, visitor: NodeVisitor[T]) -> T:
         return visitor.visit_func_call(self)
@@ -147,9 +147,47 @@ class whileNode(Node):
     def __init__(self, condition: Node, then_block: CodeBlockNode):
         self.condition = condition
         self.then_block = then_block
-    
     def accept(self, visitor: NodeVisitor[T]) -> T:
         return visitor.visit_while(self)
+class FuncArgNode(Node):
+    name: str
+
+    def __init__(self, name: str):
+        self.name = name
+    
+    def accept(self, visitor: NodeVisitor[T]) -> T:
+        return visitor.visit_func_arg(self)
+class ReturnNode(Node):
+    value: Optional[Node]
+
+    def __init__(self, value: Optional[Node] = None):
+        self.value = value
+    
+    def accept(self, visitor: NodeVisitor[T]) -> T:
+        return visitor.visit_return(self)
+class FunctionDefNode(Node):
+    name: str
+    body: CodeBlockNode
+    args: List[FuncArgNode]
+
+    def __init__(self, name: str, body: CodeBlockNode, args: List[FuncArgNode]):
+        self.name = name
+        self.body = body
+        self.args = args
+    
+    def accept(self, visitor: NodeVisitor[T]) -> T:
+        return visitor.visit_function_def(self)
+    
+class CodeFileNode(Node):
+    functions: Dict[str, FunctionDefNode]
+
+    def __init__(self, functions: List[FunctionDefNode]):
+        self.functions = {func.name: func for func in functions}
+
+    def accept(self, visitor: NodeVisitor[T]) -> T:
+        return visitor.visit_code_file(self)
+    
+    
 
 # Had To place this in this file because of circular imports. Otherwise I couldn't use type hinting in nodevisitor.py
 class NodeVisitor(Generic[T], ABC):
@@ -199,4 +237,20 @@ class NodeVisitor(Generic[T], ABC):
 
     @abstractmethod
     def visit_while(self, node: whileNode) -> T:
+        pass
+
+    @abstractmethod
+    def visit_func_arg(self, node: FuncArgNode) -> T:
+        pass
+
+    @abstractmethod
+    def visit_function_def(self, node: FunctionDefNode) -> T:
+        pass
+
+    @abstractmethod
+    def visit_code_file(self, node: CodeFileNode) -> T:
+        pass
+
+    @abstractmethod
+    def visit_return(self, node: ReturnNode) -> T:
         pass

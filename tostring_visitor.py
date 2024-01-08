@@ -1,6 +1,6 @@
 from __future__ import annotations
 from typing import Dict, Union
-from node import NodeVisitor, StringNode, TwoSideOpNode, Node, CodeBlockNode, IfNode, WordNode, SymbolNode, NumberNode, VarNode, VarDefNode, AssignNode, FuncCallNode, whileNode
+from node import CodeFileNode, FuncArgNode, FunctionDefNode, NodeVisitor, ReturnNode, StringNode, TwoSideOpNode, Node, CodeBlockNode, IfNode, WordNode, SymbolNode, NumberNode, VarNode, VarDefNode, AssignNode, FuncCallNode, whileNode
 
 # walks the tree and makes string representation of it
 
@@ -56,9 +56,19 @@ class ToStringVisitor(NodeVisitor[str]):
         return f"{node.var.accept(self)} = {node.value.accept(self)}"
     
     def visit_func_call(self, node: FuncCallNode) -> str:
-        return f"{node.func.accept(self)}({node.arg.accept(self)})"
+        return f"{node.func.accept(self)}({', '.join([arg.accept(self) for arg in node.args])})"
     def visit_string(self, node: StringNode) -> str:
         return f'"{node.string}"'
     def visit_while(self, node: whileNode) -> str:
         return f"while {node.condition.accept(self)} {node.then_block.accept(self)}"
+    def visit_func_arg(self, node: FuncArgNode) -> str:
+        return f"{node.name}"
+    def visit_function_def(self, node: FunctionDefNode) -> str:
+        return f"def {node.name}({', '.join([arg.accept(self) for arg in node.args])}) {node.body.accept(self)}"
+    def visit_code_file(self, node: CodeFileNode) -> str:
+        return "\n".join([function_def.accept(self) for function_def in node.functions.values()])
+    def visit_return(self, node: ReturnNode) -> str:
+        if node.value is None:
+            return "return"
+        return f"return {node.value.accept(self)}"
     
