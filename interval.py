@@ -7,6 +7,12 @@ class Interval(ABC):
     @abstractmethod
     def get_size(self) -> float:
         pass
+    @abstractmethod
+    def get_min(self) -> float:
+        pass
+    @abstractmethod
+    def get_max(self) -> float:
+        pass
 
     @abstractmethod
     def check(self, v: float) -> bool:
@@ -33,6 +39,10 @@ class SimpleInterval(Interval):
 
     def get_size(self):
         return self.max - self.min
+    def get_min(self):
+        return self.min
+    def get_max(self):
+        return self.max
 
     def restrict_max(self, new_max):
         # maybe it would be smarter to also have an option to change the inclusivity, but I currently dont see a reason for that
@@ -74,6 +84,10 @@ class MultiInterval(Interval):
 
     def get_size(self) -> float:
         return self.size
+    def get_min(self) -> float:
+        return self.ranges[0].get_min()
+    def get_max(self) -> float:
+        return self.ranges[-1].get_max()
 
     def step_through(self, n_steps) -> Iterator[float]:
         size_per_step = self.size / n_steps

@@ -1,5 +1,5 @@
 from __future__ import annotations
-from typing import Optional, List
+from typing import Dict, Optional, List, Tuple
 import numbers
 import math
 from interval import Interval
@@ -59,7 +59,7 @@ class Polynom:
 
     def __pow__(self, exp):
         assert isinstance(exp, int)
-        pytag_pyramid = {}
+        pytag_pyramid: Dict[Tuple[int,...], float] = {}
 
         depth = 0
         exps = [0] * len(self.koefs)
@@ -87,10 +87,12 @@ class Polynom:
                 backtracked = False
             depth += 1
         new_koeffs = [0]*(max_exp*exp + 1)
-        for (exps, koeff) in pytag_pyramid.items():
+        for (iter_exps, koeff) in pytag_pyramid.items():
+            #assert isinstance(koeff, float)
             total_exp = 0
-            for (exp, exp_factor) in enumerate(exps):
-                koeff *= self.koefs[exp]**exp_factor
+            for (exp, exp_factor) in enumerate(iter_exps):
+                x: float = self.koefs[exp]**exp_factor
+                koeff *= x
                 total_exp += exp*exp_factor
             new_koeffs[total_exp] += koeff
         return Polynom(new_koeffs)
@@ -109,7 +111,7 @@ class Polynom:
         non0_end = len(self.koefs)
         for i in range(non0_end-1, -1, -1):  # loops backwards
             k = self.koefs[i]
-            if not math.isclose(k, 0.0, abs_tol=1e-6):
+            if not math.isclose(k, 0.0, abs_tol=1e-17):
                 non0_end = i + 1
                 break
         return Polynom(self.koefs[0:non0_end])
@@ -148,8 +150,69 @@ class Polynom:
         if return_smallest and len(result) > 0:
             return [result[0]]
         return result
+    
+    # find roots using midnight formula etc.
+    def find_roots_algebraic(self, x_range: Optional[Interval] = None, return_smallest=True) -> List[float]:
+        this = self.reduce()
+        result = []
+        if this.get_grad() < 1:
+            raise ValueError(f"cannot find the roots of: {this}")
+        if this.get_grad() == 1:
+            a = self.koefs[0]
+            b = self.koefs[1]
+            result = [-a/b]
 
-    def smallest_root_bisect(self, x_range: Interval, n_steps=1000, return_smallest=True) -> List[float]:
+        elif this.get_grad() == 2:
+            a = self.koefs[2]
+            b = self.koefs[1]
+            c = self.koefs[0]
+            if b**2 < 4*a*c:
+                return []
+            root = math.sqrt(b**2-4*a*c)
+            x1 = (-b + root)/(2*a)
+            x2 = (-b - root)/(2*a)
+            result = [x1, x2]
+        if x_range is not None:
+            result = list(filter(x_range.check, result))
+        if return_smallest and len(result) > 0:
+            return [result[0]]
+        return result
+    
+    def smallest_root_bisect(self, x_range: Interval, return_smallest=True) -> List[float]:
+        # derive the polynom until it is quadratic
+        # then use find_roots_algebraic
+        curr = self
+        prevs = []
+        while curr.get_grad() > 2:
+            prevs.append(curr)
+            curr = curr.deriv()
+        # curr is now quadratic
+        # find roots
+        curr_roots = curr.find_roots_algebraic(x_range, return_smallest=False)
+        curr_roots.sort()
+        curr_roots.append(x_range.get_max())
+        # curr roots are the peaks/valleys of the previous polynom
+        # find the roots of the previous polynoms by using the bisect method
+        for prev in reversed(prevs):
+            curr_roots.append(x_range.get_max())
+            new_roots = []
+            # to do bisect we need a point above and below the 0
+            prev_value = prev.apply(x_range.get_min())
+            prev_x = x_range.get_min()
+            for root in curr_roots:
+                curr_value = prev.apply(root)
+                if prev_value < 0 and curr_value >= 0:
+                    new_roots.append(prev.root_bisect(prev_x, root))
+                elif prev_value >= 0 and curr_value < 0:
+                    new_roots.append(prev.root_bisect(root, prev_x))
+                prev_value = curr_value
+                prev_x = root
+            curr_roots = list(filter(x_range.check, new_roots))
+            
+        return curr_roots
+
+
+    def smallest_root_bisect_old(self, x_range: Interval, n_steps=1000, return_smallest=True) -> List[float]:
         """
         find roots using the bisection method
         """
@@ -180,20 +243,30 @@ class Polynom:
         # return results if return_list else None
         return results
 
-    def root_bisect(self, a, b):
+    def root_bisect(self, a, b, max_steps=1000):
         """
         find a single root using the bisection method
         """
-        # ya = self.apply(a)
+        # check if a and b are on different sides of the root
+        if self.apply(a) > 0 and self.apply(b) > 0:
+            raise ValueError(
+                f"root is not between {a} and {b}, a: {self.apply(a)}, b: {self.apply(b)}")
+        if self.apply(a) < 0 and self.apply(b) < 0:
+            raise ValueError(
+                f"root is not between {a} and {b}, a: {self.apply(a)}, b: {self.apply(b)}")
+        ya = self.apply(a)
         yb = self.apply(b)
+        i = 0
 
-        while not math.isclose(yb, 0.0, abs_tol=1e-6):
+        while not math.isclose(yb, 0.0, abs_tol=0.001) and i < max_steps:
+            #print(f"ya: {ya}, yb: {yb}")
             mid = (a+b)/2
             ym = self.apply(mid)
             if ym < 0:
                 a = mid
-                # ya = ym
+                ya = ym
             else:
                 b = mid
                 yb = ym
+            i += 1
         return b

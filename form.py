@@ -1,5 +1,5 @@
 import math
-from typing import List
+from typing import List, Optional
 import pygame
 from ball import Ball
 from collision import RotatedCollision
@@ -19,9 +19,11 @@ class Form(ABC):
     @abstractmethod
     def get_points(self) -> List[Vec[float]]:
         pass
-    def find_collision(self, ball: Ball):
+    def find_collision(self, ball: Ball, ignore: List[Path] = []):
         first_coll = None
         for path in self.paths:
+            if path in ignore:
+                continue
             coll = path.find_collision(ball)
             if coll is None:
                 continue
@@ -93,7 +95,7 @@ class CircleForm(Form):
 class LineForm(Form):
     pos1: Vec[float]
     pos2: Vec[float]
-    paths: List[LinePath]
+    paths: List[Path]
     def __init__(self, pos1: Vec[float], pos2: Vec[float], ball_radius: float):
         self.pos1 = pos1
         self.pos2 = pos2
@@ -114,7 +116,7 @@ class LineForm(Form):
         return [self.pos1, self.pos2]
         #for path in self.paths:
             #path.draw(screen, color)
-class RotateForm:
+class RotateForm(Form):
     """
     Rotate a form around a point
     This is done by rotating the ball trajectory
@@ -130,30 +132,33 @@ class RotateForm:
         self.start_angle = start_angle
         self.angle_speed = angle_speed
         self.time_interval = time_interval
-    def draw(self, screen: pygame.Surface, color, time: float = None):
+    def draw(self, screen: pygame.Surface, color, time: Optional[float] = None):
         if time is None:
             return
         angle = self.start_angle + self.angle_speed*time
         
         pts = self.form.get_points()
         new_pts = map(lambda pt: pt.rotate(angle, self.center), pts)
-        new_pts = list(map(lambda pt: (pt.x, pt.y), new_pts))
-        pygame.draw.lines(screen, color, False, new_pts, width=3)
-    def find_collision(self, ball: Ball):
-        print(f"finding collision for rotateform, ball: {ball}")
+        new_pts_tuple = list(map(lambda pt: (pt.x, pt.y), new_pts))
+        pygame.draw.lines(screen, color, False, new_pts_tuple, width=3)
+    def find_collision(self, ball: Ball, ignore: List[Path] = []):
+        #print(f"finding collision for rotateform, ball: {ball}")
         # rotate the ball trajectory
         t = Polynom([0,1])
         # rotate the ball trajectory
-        bahn = ball.bahn.rotate_poly((t+ball.start_t)*(-self.angle_speed), self.center, 10)
-        print(f"bahn: {bahn}")
+        angle = (t+ball.start_t)*(-self.angle_speed)-self.start_angle
+        bahn = ball.bahn.rotate_poly(angle, self.center, 6)
+        #print(f"bahn: {bahn}")
         # calculate the collision
-        coll = self.form.find_collision(ball.with_bahn(bahn))
-        print(f"found coll: {coll}")
+        coll = self.form.find_collision(ball.with_bahn(bahn), ignore)
+        #print(f"found coll: {coll}")
         if coll is None:
             return None
         # calculate the objects angle at the time of collision
         angle = self.start_angle + self.angle_speed*coll.time
-        return RotatedCollision(coll, -angle, self.center)
+        return RotatedCollision(coll, -angle)#, self.center)
+    def get_points(self):
+        raise NotImplementedError("get_points not implemented for RotateForm")
         
 class FormHandler:
     forms: List[Form]
@@ -164,10 +169,10 @@ class FormHandler:
     def draw(self, screen, color):
         for form in self.forms:
             form.draw(screen, color)
-    def find_collision(self, ball: Ball):
+    def find_collision(self, ball: Ball, ignore: List[Path] = []):
         first_coll = None
         for form in self.forms:
-            coll = form.find_collision(ball)
+            coll = form.find_collision(ball, ignore)
             if coll is None:
                 continue
             if first_coll is None or coll.time < first_coll.time:

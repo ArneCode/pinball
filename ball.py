@@ -20,8 +20,8 @@ class Ball:
         self.color = color
         self.vel_0 = Vec(0.0, 0.0)
         self.acc = Vec(0.0, 0.0)
-        self.bahn = Vec(0.0, 0.0)
         self.start_t = 0
+        self.update_bahn()
 
     def get_pos(self, t: float) -> Vec:
         return self.bahn.apply(t-self.start_t)

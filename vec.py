@@ -1,5 +1,6 @@
 from __future__ import annotations
 import math
+import numbers
 from typing import Generic, Self, Tuple, TypeVar
 
 from polynom import Polynom
@@ -29,7 +30,7 @@ class Vec(Generic[T]):
         return f"Vec({self.x}, {self.y})"
 
     def get_angle(self) -> float:
-        if isinstance(self.x, float):
+        if isinstance(self.x, float) and isinstance(self.y, float):
             return math.atan2(self.y, self.x)
         else:
             raise ValueError("can only get angle of float")
@@ -54,6 +55,9 @@ class Vec(Generic[T]):
             raise ValueError("can only derive polynom")
 
     def magnitude(self) -> float:
+        # check if x and y are float or int
+        assert (isinstance(self.x, float) or isinstance(self.x, int)) and (
+            isinstance(self.y, float) or isinstance(self.y, int))
         return math.sqrt(self.x**2+self.y**2)
 
     def normalize(self) -> Vec:
@@ -73,6 +77,7 @@ class Vec(Generic[T]):
     def dot(self, other: Vec) -> float:
         return self.x*other.x + self.y*other.y
     def orhtogonal(self) -> Vec:
+        assert isinstance(self.x, float) and isinstance(self.y, float)
         return Vec(-self.y, self.x)
     def rotate(self, angle: float, center: Vec) -> Vec:
         """
@@ -88,5 +93,6 @@ class Vec(Generic[T]):
         sin_poly = sin_taylor(taylor_approx)
         cos_poly = cos_taylor(taylor_approx)
         this_offset = self-center
-        this_offset_rot = Vec(this_offset.x*cos_poly.apply(angle) + this_offset.y*sin_poly.apply(angle), -this_offset.x*sin_poly.apply(angle) + this_offset.y*cos_poly.apply(angle))
+        this_offset_rot = Vec(this_offset.x*cos_poly.apply(angle) + this_offset.y*sin_poly.apply(angle), 
+                              -this_offset.x*sin_poly.apply(angle) + this_offset.y*cos_poly.apply(angle))
         return this_offset_rot + center

@@ -16,8 +16,11 @@ class Path(ABC):
     @abstractmethod
     def find_collision(self, ball: Ball) -> Collision | None:
         pass
+    @abstractmethod
+    def get_rotated(self, angle: float, center: Vec):
+        pass
 
-class CirclePath:
+class CirclePath(Path):
     def __init__(self, pos: Vec, radius, x_range = None, y_range = None, name=""):
         self.pos = pos
         self.radius = radius
@@ -52,15 +55,18 @@ class CirclePath:
 
     def find_collision(self, ball: Ball) -> Collision | None:
         # TODO: restrict searched t by already found!
-        t_range = self.bound.times_inside(ball)
+        t_range: Interval | None = self.bound.times_inside(ball)
         check_eq: Polynom = ((ball.bahn.x-self.pos.x)**2 +
                     (ball.bahn.y-self.pos.y)**2 - (self.radius)**2)
+        t_range = SimpleInterval(0, 100)
         coll = check_eq.find_roots(
             t_range, return_smallest=True, do_numeric=True)
         if len(coll) > 0:
             return Collision(coll[0], ball.bahn, self)
         return None
-class LinePath:
+    def get_rotated(self, angle: float, center: Vec):
+        return CirclePath(self.pos.rotate(angle, center), self.radius, name=self.name)
+class LinePath(Path):
     def __init__(self, pos1: Vec, pos2: Vec):
         self.pos1 = pos1
         self.pos2 = pos2
@@ -93,7 +99,10 @@ class LinePath:
             if self.x_range.check(ball.bahn.x.apply(coll)) and self.y_range.check(ball.bahn.y.apply(coll)):
                 min_t = min(min_t, coll)
             else:
-                print(f"not in range: {ball.bahn.apply(coll)}")
+                pass
+                #print(f"not in range: {ball.bahn.apply(coll)}")
         if min_t == float("inf"):
             return None
         return Collision(min_t, ball.bahn, self)
+    def get_rotated(self, angle: float, center: Vec):
+        return LinePath(self.pos1.rotate(angle, center), self.pos2.rotate(angle, center))
