@@ -14,7 +14,7 @@ class Collision:
         self.obj = obj
 
     def get_result_dir(self) -> Vec:
-        
+       # print(f"obj: {self.obj}")
         normal = self.obj.get_normal(self.bahn.apply(self.time))
         #print(f"normal: {normal}")
         vel_before = self.bahn.deriv().apply(self.time)

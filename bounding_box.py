@@ -1,13 +1,25 @@
 
+import pygame
 from ball import Ball
 from interval import MultiInterval, SimpleInterval
+from vec import Vec
 
 
 class BoundingBox:
+    x_range: SimpleInterval
+    y_range: SimpleInterval
     def __init__(self, x_range: SimpleInterval, y_range: SimpleInterval):
         self.x_range = x_range
         self.y_range = y_range
-
+    
+    def check(self, pos: Vec) -> bool:
+        result = self.x_range.check(pos.x) and self.y_range.check(pos.y)
+        return result
+    def draw(self, screen, color):
+        pygame.draw.line(screen, color, (self.x_range.min, self.y_range.min), (self.x_range.max, self.y_range.min))
+        pygame.draw.line(screen, color, (self.x_range.min, self.y_range.min), (self.x_range.min, self.y_range.max))
+        pygame.draw.line(screen, color, (self.x_range.max, self.y_range.max), (self.x_range.max, self.y_range.min))
+        pygame.draw.line(screen, color, (self.x_range.max, self.y_range.max), (self.x_range.min, self.y_range.max))
     def times_inside(self, ball: Ball) -> MultiInterval | None:
         # find when ball enters/exits range
         rpos = SimpleInterval(0, 100)  # positive real

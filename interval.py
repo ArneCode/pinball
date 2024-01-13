@@ -76,6 +76,7 @@ class SimpleInterval(Interval):
 
 class MultiInterval(Interval):
     def __init__(self, ranges: List[Interval]):
+        assert len(ranges) > 0
         size = 0.0
         for range in ranges:
             size += range.get_size()
@@ -87,6 +88,7 @@ class MultiInterval(Interval):
     def get_min(self) -> float:
         return self.ranges[0].get_min()
     def get_max(self) -> float:
+        print(f"ranges: {self.ranges}")
         return self.ranges[-1].get_max()
 
     def step_through(self, n_steps) -> Iterator[float]:

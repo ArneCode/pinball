@@ -14,7 +14,7 @@ class Form(ABC):
     def __init__(self, paths: List[Path]):
         self.paths = paths
     @abstractmethod
-    def draw(self, screen, color):
+    def draw(self, screen, color, time: float):
         pass
     @abstractmethod
     def get_points(self) -> List[Vec[float]]:
@@ -84,8 +84,11 @@ class CircleForm(Form):
                 edge, ball_radius, kante_x_range, kante_y_range, "kant"))
             super().__init__(self.paths)
 
-    def draw(self, screen, color):
+    def draw(self, screen, color, time: float):
         pygame.draw.lines(screen, color, False, self.points, width=3)
+        for kante in self.paths:
+            # pygame.draw.circle(screen, color, kante, 50)
+            kante.draw(screen, color)
     def get_points(self):
         return map(lambda p: Vec(p[0], p[1]),self.points)
         #for kante in self.paths:
@@ -110,7 +113,7 @@ class LineForm(Form):
         self.paths.append(CirclePath(pos1, ball_radius))
         self.paths.append(CirclePath(pos2, ball_radius))
         super().__init__(self.paths)
-    def draw(self, screen, color):
+    def draw(self, screen, color, time: float):
         pygame.draw.line(screen, color, (self.pos1.x, self.pos1.y), (self.pos2.x, self.pos2.y), width=3)
     def get_points(self):
         return [self.pos1, self.pos2]
@@ -159,6 +162,46 @@ class RotateForm(Form):
         return RotatedCollision(coll, -angle)#, self.center)
     def get_points(self):
         raise NotImplementedError("get_points not implemented for RotateForm")
+
+# A form that is a certain Form for a period of time and becomes another form afterwards
+class TempForm(Form):
+    start_form: Form
+    form_duration: float
+    end_form: Form
+    is_end: bool
+
+    def __init__(self, start_form: Form, form_duration: float, end_form: Form):
+        self. start_form = start_form
+        self.form_duration = form_duration
+        self.end_form = end_form
+        self.is_end = False
+    def draw(self, screen, color, time: float):
+        if time is None:
+            return
+        if time < self.form_duration:
+            print("a")
+            self.start_form.draw(screen, color, time)
+        else:
+            #print("b")
+            self.end_form.draw(screen, color, time)
+    def find_collision(self, ball: Ball, ignore: List[Path] = []):
+        if self.is_end:
+            return self.end_form.find_collision(ball, ignore)
+        
+        
+        coll = self.start_form.find_collision(ball, ignore)
+        if coll is not None and coll.time + ball.start_t < self.form_duration:
+            return coll
+        
+        coll = self.end_form.find_collision(ball, ignore)
+        if coll is not None and coll.time + ball.start_t >= self.form_duration:
+            self.is_end = True
+            return coll
+        return None
+    
+    def get_points(self):
+        raise NotImplementedError("get_points not implemented for TempForm")
+
         
 class FormHandler:
     forms: List[Form]
@@ -166,9 +209,9 @@ class FormHandler:
         self.forms = []
     def add_form(self, form: Form):
         self.forms.append(form)
-    def draw(self, screen, color):
+    def draw(self, screen, color, time: float):
         for form in self.forms:
-            form.draw(screen, color)
+            form.draw(screen, color, time)
     def find_collision(self, ball: Ball, ignore: List[Path] = []):
         first_coll = None
         for form in self.forms:

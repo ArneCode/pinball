@@ -1,4 +1,5 @@
 import math
+from typing import List, Tuple
 import pygame
 from ball import Ball
 from bounding_box import BoundingBox
@@ -19,8 +20,17 @@ class Path(ABC):
     @abstractmethod
     def get_rotated(self, angle: float, center: Vec):
         pass
+    @abstractmethod
+    def draw(self, screen, color):
+        pass
 
 class CirclePath(Path):
+    pos: Vec
+    radius: float
+    points: List[Tuple[float, float]]
+    name: str
+    bound: BoundingBox
+
     def __init__(self, pos: Vec, radius, x_range = None, y_range = None, name=""):
         self.pos = pos
         self.radius = radius
@@ -52,21 +62,28 @@ class CirclePath(Path):
 
     def draw(self, screen, color):
         pygame.draw.lines(screen, color, False, self.points, width=1)
+        if False:
+            self.bound.draw(screen, color)
 
     def find_collision(self, ball: Ball) -> Collision | None:
         # TODO: restrict searched t by already found!
-        t_range: Interval | None = self.bound.times_inside(ball)
+        #t_range: Interval | None = self.bound.times_inside(ball)
         check_eq: Polynom = ((ball.bahn.x-self.pos.x)**2 +
                     (ball.bahn.y-self.pos.y)**2 - (self.radius)**2)
         t_range = SimpleInterval(0, 100)
         coll = check_eq.find_roots(
-            t_range, return_smallest=True, do_numeric=True)
+            t_range, return_smallest=True, do_numeric=True, filter_fn=lambda t: self.bound.check(ball.bahn.apply(t)))
         if len(coll) > 0:
             return Collision(coll[0], ball.bahn, self)
         return None
     def get_rotated(self, angle: float, center: Vec):
         return CirclePath(self.pos.rotate(angle, center), self.radius, name=self.name)
+    def __str__(self):
+        return f"CirclePath(name: {self.name})"
 class LinePath(Path):
+    pos1: Vec
+    pos2: Vec
+
     def __init__(self, pos1: Vec, pos2: Vec):
         self.pos1 = pos1
         self.pos2 = pos2
@@ -82,9 +99,9 @@ class LinePath(Path):
             self.eq_y = y
         else:
             x = Polynom([0,1])
+            self.eq_x = x
             steep = self.tangent.y/self.tangent.x
             self.eq_y = (x-pos1.x)*steep+pos1.y
-            self.eq_x = x
     def get_normal(self, pos: Vec) -> Vec:
         return self.tangent.orhtogonal().normalize()
     def draw(self, screen, color):

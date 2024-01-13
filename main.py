@@ -1,10 +1,11 @@
 from __future__ import annotations
 import copy
+import math
 import time
 from typing import Tuple
 import pygame
 from ball import Ball
-from form import FormHandler, LineForm, RotateForm
+from form import CircleForm, FormHandler, LineForm, RotateForm, TempForm
 from interval import SimpleInterval
 from polynom import Polynom
 from vec import Vec
@@ -16,16 +17,22 @@ def precalc_colls(ball: Ball, forms: FormHandler, queue: Queue, stop_event):
     ball = copy.deepcopy(ball)
     i = 0
     prev_obj = None
+    prev_coll_t = 0
+    remove_dup = False
     while not stop_event.is_set():
-        print(f"i: {i}")
-        check_dup_coll = False
-        if prev_obj is not None:
+        #print(f"i: {i}")
+        if remove_dup and prev_obj is not None and prev_obj:
             coll = forms.find_collision(ball, ignore=[prev_obj])
+            remove_dup = False
         else:
             coll = forms.find_collision(ball)
         assert coll is not None
-        #if coll.obj is prev_obj:
-        #    continue
+        if coll.obj is prev_obj and math.isclose(coll.time + ball.start_t, prev_coll_t, abs_tol=0.01):
+            print("remove dup")
+            remove_dup = True
+            prev_coll_t = coll.time + ball.start_t
+            continue
+        prev_coll_t = coll.time + ball.start_t
         
         dir = coll.get_result_dir()  # *(-50)
         ball = ball.with_start_t(coll.time + ball.start_t).with_start_pos(
@@ -52,8 +59,8 @@ if render:
 
     dt = 0.001
     # create ball
-    ball = Ball(Vec(300, 300), 50, "red").with_acc(Vec(0, 90.8)).with_vel(Vec(
-        0.1, 0.1
+    ball = Ball(Vec(250, 300), 50, "red").with_acc(Vec(0, 90.8)).with_vel(Vec(
+        70, 0.1
     ))
     form_handler = FormHandler()
     # ränder
@@ -63,15 +70,19 @@ if render:
     form_handler.add_form(LineForm(Vec(0, 720), Vec(1280, 720), 50))
 
     #boden = LineForm(Vec(100, 600), Vec(1280, 400), 50)
-    #form_handler.add_form(CircleForm(Vec(600, 1600), 1200,
-    #                   SimpleInterval(200, 1080), SimpleInterval(100, 700), 1000))
+    form_handler.add_form(CircleForm(Vec(600, 1600), 1200,
+                       SimpleInterval(200, 1080), SimpleInterval(100, 700), 1000))
     
     # a rotated line
     line = LineForm(Vec(0,720), Vec(500,720), 50)
     #rotateform: def __init__(self, form: Form, center: Vec[float], start_angle: float, angle_speed: float, time_interval: SimpleInterval):
     
-    line_rotated = RotateForm(line, Vec(0, 720), 0, 1, SimpleInterval(0, 1000))
-    form_handler.add_form(line_rotated)
+    line_rotated = RotateForm(line, Vec(0, 720), 0, 0.2, SimpleInterval(0, 1000))
+
+    line_fixed = LineForm(Vec(0, 720), Vec(500, 500), 50)
+
+    line_temped = TempForm(line_rotated, 10, line_fixed)
+    form_handler.add_form(line_temped)
 
     queue: Queue[Tuple[float, Ball]] = mp.Queue()
     stop_event = mp.Event()
@@ -107,9 +118,9 @@ if render:
         screen.fill("black")
 
         # ball.update(dt)
-        passed = (time.time_ns() - start_time)/(10**(9))
+        passed = (time.time_ns() - start_time)/(10**(8.3))
         # ball.pos_0 = bahn.get_pos(passed)
-        while passed > next_coll_t+ ball.start_t:# and k < 20:
+        while passed > next_coll_t+ ball.start_t:# and k < 5:
             print(f"coll, prev_veL: {ball.bahn.deriv().apply(passed).magnitude()}, next_vel: {next_ball.vel_0.magnitude()}")
             ball = next_ball
             next_coll_t, next_ball = queue.get()
@@ -135,13 +146,13 @@ if render:
         # continue
 
         # RENDER YOUR GAME HERE
-        form_handler.draw(screen, (0, 255, 0))
-        line_rotated.draw(screen, (0, 255, 0), passed)
+        form_handler.draw(screen, (0, 255, 0), passed)
+        #line_rotated.draw(screen, (0, 255, 0), passed)
 
         ball.draw(passed, screen)
         # flip() the display to put your work on screen
         pygame.display.flip()
-        clock.tick(60)
+        #clock.tick(60)
 
     pygame.quit()
     coll_process.join()

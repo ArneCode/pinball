@@ -1,5 +1,5 @@
 from __future__ import annotations
-from typing import Dict, Optional, List, Tuple
+from typing import Callable, Dict, Optional, List, Tuple
 import numbers
 import math
 from interval import Interval
@@ -59,7 +59,7 @@ class Polynom:
 
     def __pow__(self, exp):
         assert isinstance(exp, int)
-        pytag_pyramid: Dict[Tuple[int,...], float] = {}
+        pytag_pyramid: Dict[Tuple[int,...], float] = {} #pascall!!!!
 
         depth = 0
         exps = [0] * len(self.koefs)
@@ -86,15 +86,15 @@ class Polynom:
                 sum += 1
                 backtracked = False
             depth += 1
-        new_koeffs = [0]*(max_exp*exp + 1)
-        for (iter_exps, koeff) in pytag_pyramid.items():
+        new_koeffs = [0.0]*(max_exp*exp + 1)
+        for (iter_exps, loop_koeff) in pytag_pyramid.items():
             #assert isinstance(koeff, float)
             total_exp = 0
             for (exp, exp_factor) in enumerate(iter_exps):
                 x: float = self.koefs[exp]**exp_factor
-                koeff *= x
+                loop_koeff *= x
                 total_exp += exp*exp_factor
-            new_koeffs[total_exp] += koeff
+            new_koeffs[total_exp] += loop_koeff
         return Polynom(new_koeffs)
 
     def apply(self, x):
@@ -122,7 +122,7 @@ class Polynom:
     def get_grad(self) -> int:
         return len(self.koefs) - 1
 
-    def find_roots(self, x_range: Optional[Interval] = None, return_smallest=True, do_numeric=False) -> List[float]:
+    def find_roots(self, x_range: Optional[Interval] = None, filter_fn: Optional[Callable[[float], bool]] = None, return_smallest=True, do_numeric=False) -> List[float]:
         this = self.reduce()
         result = []
         if this.get_grad() < 1:
@@ -144,9 +144,13 @@ class Polynom:
             result = [x1, x2]
 
         elif do_numeric and x_range is not None:
-            return self.smallest_root_bisect(x_range, return_smallest=return_smallest)
+            assert x_range is not None
+            result = self.smallest_root_bisect(x_range, return_smallest=return_smallest)
         if x_range is not None:
             result = list(filter(x_range.check, result))
+        if filter_fn is not None:
+            len_before = len(result)
+            result = list(filter(filter_fn, result))
         if return_smallest and len(result) > 0:
             return [result[0]]
         return result
@@ -258,7 +262,7 @@ class Polynom:
         yb = self.apply(b)
         i = 0
 
-        while not math.isclose(yb, 0.0, abs_tol=0.001) and i < max_steps:
+        while not math.isclose(yb, 0.0, abs_tol=0.01) and i < max_steps:
             #print(f"ya: {ya}, yb: {yb}")
             mid = (a+b)/2
             ym = self.apply(mid)
