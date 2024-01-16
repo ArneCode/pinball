@@ -5,7 +5,7 @@ import time
 from typing import Set, Tuple
 import pygame
 from ball import Ball
-from form import CircleForm, FormHandler, LineForm, RotateForm, TempForm
+from form import CircleForm, FormContainer, FormHandler, LineForm, RotateForm, TempForm
 from interval import SimpleInterval
 from polynom import Polynom
 from vec import Vec
@@ -46,18 +46,18 @@ def precalc_colls(ball: Ball, forms: FormHandler, queue: Queue, stop_event):
 pol = Polynom([6 ,-5, -2, 1])
 print(pol.smallest_root_bisect(SimpleInterval(-10, 10)))
 
-def make_flipper(line: LineForm, rot_point: Vec, up_angle: float, down_angle: float, turn_duration: float, curr_up: bool):
+def make_flipper(line: LineForm, rot_point: Vec, up_angle: float, down_angle: float, turn_duration: float, curr_up: bool, curr_time: float = 0):
     up_line = line.rotate(up_angle, rot_point)
     down_line = line.rotate(down_angle, rot_point)
-
+    
     speed = (up_angle - down_angle)/turn_duration
 
     if curr_up:
-        rotating_line = RotateForm(up_line, rot_point, up_angle, speed)
-        return TempForm(rotating_line, turn_duration, down_line)
+        rotating_line = RotateForm(up_line, rot_point, -0.1, -speed, curr_time)
+        return TempForm(rotating_line, turn_duration + curr_time, down_line)
     else:
-        rotating_line = RotateForm(down_line, rot_point, down_angle, speed)
-        return TempForm(rotating_line, turn_duration, up_line)
+        rotating_line = RotateForm(down_line, rot_point, -0.1, speed, curr_time)
+        return TempForm(rotating_line, turn_duration + curr_time, up_line)
 
 render = True
 if render:
@@ -85,11 +85,13 @@ if render:
     #boden = LineForm(Vec(100, 600), Vec(1280, 400), 50)
     #form_handler.add_form(CircleForm(Vec(600, 1600), 1200,
     #                   4,5, 1000))
-    form_handler.add_form(CircleForm(Vec(500, 300), 100, 0, 2, 1000))
+    #form_handler.add_form(CircleForm(Vec(500, 300), 100, 0, 2, 1000))
     form_handler.add_form(CircleForm(Vec(700, 300), 100, 4, 6, 1000))
     # a rotated line
     flipper_line = LineForm(Vec(100,620), Vec(450,720), 50)
-    flipper = make_flipper(flipper_line, Vec(100, 620), 1, 0, 1.5, False)
+    flipper_line_rotated = make_flipper(flipper_line, Vec(100, 620), 0, 0, 0.001, True)
+    flipper_line_rotated.is_end = True
+    flipper = FormContainer(flipper_line_rotated, name="flipper")
     form_handler.add_form(flipper)
     #rotateform: def __init__(self, form: Form, center: Vec[float], start_angle: float, angle_speed: float, time_interval: SimpleInterval):
     
@@ -111,17 +113,42 @@ if render:
     #coll = form_handler.find_collision(ball)
     #passed = (time.time_ns() - start_time)/(10**6)
     #print(f"calculating took {passed} ms")
-
+    def calc_time():
+        return (time.time_ns() - start_time)/(10**(8.8))
+    def stop_process(p, evt):
+        evt.set()
+        #p.join()
+    def restart_process():
+        global queue, next_coll_t, next_ball, ball
+        curr_t = calc_time()
+        ball = ball.from_time(curr_t)
+        stop_event.clear()
+        queue = mp.Queue()
+        coll_process = mp.Process(target=precalc_colls, args=(ball, form_handler, queue, stop_event))
+        coll_process.start()
+        next_coll_t, next_ball = queue.get()
     curr_pressed: Set[int] = set()
+    flipper_moving_up = False
     def handle_keydown(key: int):
         curr_pressed.add(key)
+        # if key == pygame.K_SPACE:
+        #     stop_process(coll_process, stop_event)
+        #     flipper.set(make_flipper(flipper_line, Vec(100, 620), 1, 0, 1, False, calc_time()))
+        #     restart_process()
+
+        
     def handle_keyup(key):
         curr_pressed.remove(key)
+        # if key == pygame.K_SPACE:
+        #     stop_process(coll_process, stop_event)
+        #     flipper.set(make_flipper(flipper_line, Vec(100, 620), 1, 0, 1, True, calc_time()))
+        #     restart_process()
     
     
     #print(f"coll_t: {coll.time}")
     k = 0
     while running:
+        #print(f"queue size: {queue.qsize()}, curr_pressed: {curr_pressed}")
         # poll for events
         # pygame.QUIT event means the user clicked X to close your window
         
@@ -135,6 +162,20 @@ if render:
                 handle_keydown(event.key)
             elif event.type == pygame.KEYUP:
                 handle_keyup(event.key)
+        assert isinstance(flipper.form, TempForm)
+        move_ended = calc_time() > flipper.form.form_duration
+        if pygame.K_SPACE in curr_pressed and not flipper_moving_up and move_ended:
+            print("a")
+            stop_process(coll_process, stop_event)
+            flipper.set(make_flipper(flipper_line, Vec(100, 620), 1, 0, 1, False, calc_time()))
+            restart_process()
+            flipper_moving_up = True
+        elif pygame.K_SPACE not in curr_pressed and flipper_moving_up and move_ended:
+            print("b")
+            stop_process(coll_process, stop_event)
+            flipper.set(make_flipper(flipper_line, Vec(100, 620), 1, 0, 1, True, calc_time()))
+            restart_process()
+            flipper_moving_up = False
 
                 #coll_process.join()
         if not running:
@@ -143,15 +184,17 @@ if render:
         screen.fill("black")
 
         # ball.update(dt)
-        passed = (time.time_ns() - start_time)/(10**(8.3))
+        passed = calc_time()
         # ball.pos_0 = bahn.get_pos(passed)
+        looped = False
         while passed > next_coll_t+ ball.start_t:
-            print(f"coll, prev_veL: {ball.bahn.deriv().apply(passed).magnitude()}, next_vel: {next_ball.vel_0.magnitude()}")
+            looped = True
+            #print(f"coll, prev_veL: {ball.bahn.deriv().apply(passed).magnitude()}, next_vel: {next_ball.vel_0.magnitude()}")
             ball = next_ball
             next_coll_t, next_ball = queue.get()
-            print(f"next_coll_t: {next_coll_t}, next_ball: {next_ball}")
+            #print(f"next_coll_t: {next_coll_t}, next_ball: {next_ball}")
             energy = ball.vel_0.magnitude()**2/2 + ball.pos_0.y*9.8
-            print(f"energy: {energy}, k: {k}")
+            #print(f"energy: {energy}, k: {k}")
             k += 1
             # dir = coll.get_result_dir()  # *(-50)
             # ball = ball.with_start_t(coll.time + ball.start_t).with_start_pos(
@@ -164,7 +207,7 @@ if render:
             #else:
             #    i += 1
             #    print(f"found coll: {coll.time}, i: {i}")
-
+        
 
         # screen.fill("black")
         # boden.draw(screen, (0, 255, 0))
@@ -177,7 +220,7 @@ if render:
         ball.draw(passed, screen)
         # flip() the display to put your work on screen
         pygame.display.flip()
-        #clock.tick(60)
+        clock.tick(60)
 
     pygame.quit()
     coll_process.join()

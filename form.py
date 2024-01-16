@@ -169,17 +169,19 @@ class RotateForm(Form):
     center: Vec[float]
     start_angle: float # the point which the form is rotated around
     angle_speed: float
+    start_time: float
     name: str
-    def __init__(self, form: StaticForm, center: Vec[float], start_angle: float, angle_speed: float, name="rotateform"):
+    def __init__(self, form: StaticForm, center: Vec[float], start_angle: float, angle_speed: float, start_time: float, name="rotateform"):
         self.form = form
         self.center = center
         self.start_angle = start_angle
         self.angle_speed = angle_speed
+        self.start_time = start_time
         self.name = name
     def draw(self, screen: pygame.Surface, color, time: Optional[float] = None):
         if time is None:
             return
-        angle = self.start_angle + self.angle_speed*time
+        angle = self.start_angle + self.angle_speed*(time-self.start_time)
         form_rotated = self.form.rotate(angle, self.center)
         form_rotated.draw(screen, color, time)
         return
@@ -193,7 +195,7 @@ class RotateForm(Form):
         # rotate the ball trajectory
         t = Polynom([0,1])
         # rotate the ball trajectory
-        angle = (t+ball.start_t)*(-self.angle_speed)-self.start_angle
+        angle = (t-self.start_time+ball.start_t)*(-self.angle_speed)-self.start_angle
         bahn = ball.bahn.rotate_poly(angle, self.center, 6)
         #print(f"bahn: {bahn}")
         # calculate the collision
@@ -204,8 +206,6 @@ class RotateForm(Form):
         # calculate the objects angle at the time of collision
         angle = self.start_angle + self.angle_speed*coll.time
         return RotatedCollision(coll, -angle)#, self.center)
-    def get_points(self):
-        raise NotImplementedError("get_points not implemented for RotateForm")
     def get_name(self):
         return self.name
 
@@ -255,6 +255,7 @@ class TempForm(Form):
         elif coll_end.time + ball.start_t >= self.form_duration:
             #print(f"collision in end form {coll_end.time + ball.start_t} >= {self.form_duration}")
             #raise ValueError("test")
+            print("is end")
             self.is_end = True
             return coll_end
         #else:
@@ -266,6 +267,20 @@ class TempForm(Form):
     def get_name(self):
         return self.name
 
+class FormContainer(Form):
+    form: Form
+    name: str
+    def __init__(self, form: Form, name="formcontainer"):
+        self.form = form
+        self.name = name
+    def draw(self, screen, color, time: float):
+        self.form.draw(screen, color, time)
+    def find_collision(self, ball: Ball, ignore: List[Path] = []):
+        return self.form.find_collision(ball, ignore)
+    def get_name(self):
+        return self.name
+    def set(self, form: Form):
+        self.form = form
         
 class FormHandler:
     forms: List[Form]

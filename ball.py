@@ -60,3 +60,9 @@ class Ball:
         new = copy.copy(self)
         new.start_t = start_t
         return new
+    def from_time(self, t: float):
+        rel_t = t-self.start_t
+        new_pos = self.get_pos(t)
+        new_vel = self.bahn.deriv().apply(rel_t)
+        print(f"new_pos: {new_pos}, new_vel: {new_vel}, rel_t: {rel_t}")
+        return self.with_start_t(t).with_start_pos(new_pos).with_vel(new_vel)
