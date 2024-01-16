@@ -10,6 +10,8 @@ from polynom import Polynom
 from vec import Vec
 from abc import ABC, abstractmethod
 
+from angle import angle_between
+
 class Path(ABC):
     @abstractmethod
     def get_normal(self, pos: Vec) -> Vec:
@@ -29,28 +31,34 @@ class CirclePath(Path):
     radius: float
     points: List[Tuple[float, float]]
     name: str
-    bound: BoundingBox
+    #bound: BoundingBox
+    min_angle: float
+    max_angle: float
 
-    def __init__(self, pos: Vec, radius, x_range = None, y_range = None, name=""):
+    def __init__(self, pos: Vec, radius, min_angle: float = 0, max_angle: float = 2*math.pi, name=""):
+        while max_angle <= min_angle:
+            max_angle += 2*math.pi
         self.pos = pos
         self.radius = radius
         self.points = []
         self.name = name
+        self.min_angle = min_angle
+        self.max_angle = max_angle
 
-        if x_range is None:
-            x_range = SimpleInterval(pos.x-radius, pos.x+radius)
-        if y_range is None:
-            y_range = SimpleInterval(pos.y-radius, pos.y+radius)
-        self.bound = BoundingBox(x_range, y_range)
+        #if x_range is None:
+        #    x_range = SimpleInterval(pos.x-radius, pos.x+radius)
+        #if y_range is None:
+        #    y_range = SimpleInterval(pos.y-radius, pos.y+radius)
+        #self.bound = BoundingBox(x_range, y_range)
 
         resolution = 1000
-        step_size = 2*math.pi/resolution
+        step_size = (self.max_angle - self.min_angle)/resolution
+
         for i in range(resolution):
-            a_r = i*step_size
+            a_r = i*step_size + self.min_angle
             x = math.cos(a_r)*radius + pos.x
             y = math.sin(a_r)*radius + pos.y
-            if x_range.check(x) and y_range.check(y):
-                self.points.append((x, y))
+            self.points.append((x, y))
 
     def get_normal(self, pos: Vec) -> Vec:
         steep = -(pos.x - self.pos.x)/(pos.y-self.pos.y)
@@ -64,7 +72,9 @@ class CirclePath(Path):
         pygame.draw.lines(screen, color, False, self.points, width=1)
         if False:
             self.bound.draw(screen, color)
-
+    def check_vec_angle(self, pos: Vec) -> bool:
+        angle = (pos-self.pos).get_angle()
+        return angle_between(angle, self.min_angle, self.max_angle)
     def find_collision(self, ball: Ball) -> Collision | None:
         # TODO: restrict searched t by already found!
         #t_range: Interval | None = self.bound.times_inside(ball)
@@ -72,7 +82,7 @@ class CirclePath(Path):
                     (ball.bahn.y-self.pos.y)**2 - (self.radius)**2)
         t_range = SimpleInterval(0, 100)
         coll = check_eq.find_roots(
-            t_range, return_smallest=True, do_numeric=True, filter_fn=lambda t: self.bound.check(ball.bahn.apply(t)))
+            t_range, return_smallest=True, do_numeric=True, filter_fn=lambda t: self.check_vec_angle(ball.bahn.apply(t)))
         if len(coll) > 0:
             return Collision(coll[0], ball.bahn, self)
         return None

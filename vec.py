@@ -30,8 +30,14 @@ class Vec(Generic[T]):
         return f"Vec({self.x}, {self.y})"
 
     def get_angle(self) -> float:
+        """
+        returns the angle of the vector in radians, between 0 and 2pi
+        """
         if isinstance(self.x, float) and isinstance(self.y, float):
-            return math.atan2(self.y, self.x)
+            angle =  math.atan2(self.y, self.x) # angle between -pi and pi
+            if angle < 0:
+                angle += 2*math.pi
+            return angle # angle between 0 and 2pi
         else:
             raise ValueError("can only get angle of float")
 

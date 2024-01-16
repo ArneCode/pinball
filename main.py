@@ -2,7 +2,7 @@ from __future__ import annotations
 import copy
 import math
 import time
-from typing import Tuple
+from typing import Set, Tuple
 import pygame
 from ball import Ball
 from form import CircleForm, FormHandler, LineForm, RotateForm, TempForm
@@ -46,6 +46,19 @@ def precalc_colls(ball: Ball, forms: FormHandler, queue: Queue, stop_event):
 pol = Polynom([6 ,-5, -2, 1])
 print(pol.smallest_root_bisect(SimpleInterval(-10, 10)))
 
+def make_flipper(line: LineForm, rot_point: Vec, up_angle: float, down_angle: float, turn_duration: float, curr_up: bool):
+    up_line = line.rotate(up_angle, rot_point)
+    down_line = line.rotate(down_angle, rot_point)
+
+    speed = (up_angle - down_angle)/turn_duration
+
+    if curr_up:
+        rotating_line = RotateForm(up_line, rot_point, up_angle, speed)
+        return TempForm(rotating_line, turn_duration, down_line)
+    else:
+        rotating_line = RotateForm(down_line, rot_point, down_angle, speed)
+        return TempForm(rotating_line, turn_duration, up_line)
+
 render = True
 if render:
     # pygame setup
@@ -59,7 +72,7 @@ if render:
 
     dt = 0.001
     # create ball
-    ball = Ball(Vec(250, 300), 50, "red").with_acc(Vec(0, 90.8)).with_vel(Vec(
+    ball = Ball(Vec(250, 400), 50, "red").with_acc(Vec(0, 90.8)).with_vel(Vec(
         70, 0.1
     ))
     form_handler = FormHandler()
@@ -70,19 +83,22 @@ if render:
     form_handler.add_form(LineForm(Vec(0, 720), Vec(1280, 720), 50))
 
     #boden = LineForm(Vec(100, 600), Vec(1280, 400), 50)
-    form_handler.add_form(CircleForm(Vec(600, 1600), 1200,
-                       SimpleInterval(200, 1080), SimpleInterval(100, 700), 1000))
-    
+    #form_handler.add_form(CircleForm(Vec(600, 1600), 1200,
+    #                   4,5, 1000))
+    form_handler.add_form(CircleForm(Vec(500, 300), 100, 0, 2, 1000))
+    form_handler.add_form(CircleForm(Vec(700, 300), 100, 4, 6, 1000))
     # a rotated line
-    line = LineForm(Vec(0,720), Vec(500,720), 50)
+    flipper_line = LineForm(Vec(100,620), Vec(450,720), 50)
+    flipper = make_flipper(flipper_line, Vec(100, 620), 1, 0, 1.5, False)
+    form_handler.add_form(flipper)
     #rotateform: def __init__(self, form: Form, center: Vec[float], start_angle: float, angle_speed: float, time_interval: SimpleInterval):
     
-    line_rotated = RotateForm(line, Vec(0, 720), 0, 0.2, SimpleInterval(0, 1000))
+    #line_rotated = RotateForm(line, Vec(0, 720), 0, 0.2)
 
-    line_fixed = LineForm(Vec(0, 720), Vec(500, 500), 50)
+    #line_fixed = LineForm(Vec(0, 720), Vec(500, 500), 50)
 
-    line_temped = TempForm(line_rotated, 10, line_fixed)
-    form_handler.add_form(line_temped)
+    #line_temped = TempForm(line_rotated, 10, line_fixed)
+    #form_handler.add_form(line_temped)
 
     queue: Queue[Tuple[float, Ball]] = mp.Queue()
     stop_event = mp.Event()
@@ -96,6 +112,11 @@ if render:
     #passed = (time.time_ns() - start_time)/(10**6)
     #print(f"calculating took {passed} ms")
 
+    curr_pressed: Set[int] = set()
+    def handle_keydown(key: int):
+        curr_pressed.add(key)
+    def handle_keyup(key):
+        curr_pressed.remove(key)
     
     
     #print(f"coll_t: {coll.time}")
@@ -110,6 +131,10 @@ if render:
                 stop_event.set()
                 coll_process.terminate()
                 break
+            elif event.type == pygame.KEYDOWN:
+                handle_keydown(event.key)
+            elif event.type == pygame.KEYUP:
+                handle_keyup(event.key)
 
                 #coll_process.join()
         if not running:
@@ -120,7 +145,7 @@ if render:
         # ball.update(dt)
         passed = (time.time_ns() - start_time)/(10**(8.3))
         # ball.pos_0 = bahn.get_pos(passed)
-        while passed > next_coll_t+ ball.start_t:# and k < 5:
+        while passed > next_coll_t+ ball.start_t:
             print(f"coll, prev_veL: {ball.bahn.deriv().apply(passed).magnitude()}, next_vel: {next_ball.vel_0.magnitude()}")
             ball = next_ball
             next_coll_t, next_ball = queue.get()

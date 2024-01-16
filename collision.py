@@ -25,7 +25,7 @@ class Collision:
             vel_ort = vel_ort.normalize()*min_ort
         #print(f"vel_before: {vel_before}, vel_ort: {vel_ort}, vel_par: {vel_par}")
         #raise ValueError("stop")
-        return vel_par - vel_ort#(vel_par*0.95 - vel_ort*0.8)
+        return vel_par - vel_ort*0.9#(vel_par*0.95 - vel_ort*0.8)
 class RotatedCollision(Collision):
     angle: float
     def __init__(self, collision: Collision, angle: float):
