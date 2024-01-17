@@ -5,6 +5,7 @@ from ball import Ball
 from bounding_box import BoundingBox
 from collision import Collision
 from interval import Interval, SimpleInterval
+from material import Material
 
 from polynom import Polynom
 from vec import Vec
@@ -25,6 +26,9 @@ class Path(ABC):
     @abstractmethod
     def draw(self, screen, color):
         pass
+    @abstractmethod
+    def get_material(self) -> Material:
+        pass
 
 class CirclePath(Path):
     pos: Vec
@@ -34,8 +38,9 @@ class CirclePath(Path):
     #bound: BoundingBox
     min_angle: float
     max_angle: float
+    material: Material
 
-    def __init__(self, pos: Vec, radius, min_angle: float = 0, max_angle: float = 2*math.pi, name=""):
+    def __init__(self, pos: Vec, radius, material: Material, min_angle: float = 0, max_angle: float = 2*math.pi, name=""):
         while max_angle <= min_angle:
             max_angle += 2*math.pi
         self.pos = pos
@@ -44,6 +49,7 @@ class CirclePath(Path):
         self.name = name
         self.min_angle = min_angle
         self.max_angle = max_angle
+        self.material = material
 
         #if x_range is None:
         #    x_range = SimpleInterval(pos.x-radius, pos.x+radius)
@@ -87,16 +93,26 @@ class CirclePath(Path):
             return Collision(coll[0], ball.bahn, self)
         return None
     def get_rotated(self, angle: float, center: Vec):
-        return CirclePath(self.pos.rotate(angle, center), self.radius, name=self.name)
+        new_pos = self.pos.rotate(angle, center)
+        return CirclePath(new_pos, self.radius, self.material, self.min_angle+angle, self.max_angle+angle, self.name)
     def __str__(self):
         return f"CirclePath(name: {self.name})"
+    def get_material(self) -> Material:
+        return self.material
 class LinePath(Path):
     pos1: Vec
     pos2: Vec
+    tangent: Vec
+    eq_x: Polynom
+    eq_y: Polynom
+    x_range: Interval
+    y_range: Interval
+    material: Material
 
-    def __init__(self, pos1: Vec, pos2: Vec):
+    def __init__(self, pos1: Vec, pos2: Vec, material: Material):
         self.pos1 = pos1
         self.pos2 = pos2
+        self.material = material
         self.tangent = (pos2-pos1).normalize()
         self.x_range = SimpleInterval(min(pos1.x, pos2.x), max(pos1.x, pos2.x))
         self.y_range = SimpleInterval(min(pos1.y, pos2.y), max(pos1.y, pos2.y))
@@ -132,4 +148,6 @@ class LinePath(Path):
             return None
         return Collision(min_t, ball.bahn, self)
     def get_rotated(self, angle: float, center: Vec):
-        return LinePath(self.pos1.rotate(angle, center), self.pos2.rotate(angle, center))
+        return LinePath(self.pos1.rotate(angle, center), self.pos2.rotate(angle, center), self.material)
+    def get_material(self) -> Material:
+        return self.material

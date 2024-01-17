@@ -262,7 +262,7 @@ class Polynom:
         yb = self.apply(b)
         i = 0
 
-        while not math.isclose(yb, 0.0, abs_tol=0.01) and i < max_steps:
+        while not math.isclose(yb, 0.0, abs_tol=0.0001) and i < max_steps:
             #print(f"ya: {ya}, yb: {yb}")
             mid = (a+b)/2
             ym = self.apply(mid)

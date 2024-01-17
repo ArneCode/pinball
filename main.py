@@ -7,12 +7,16 @@ import pygame
 from ball import Ball
 from form import CircleForm, FormContainer, FormHandler, LineForm, RotateForm, TempForm
 from interval import SimpleInterval
+from material import Material
 from polynom import Polynom
 from vec import Vec
 # use queue from multiprocessing to communicate between threads
 from multiprocessing import Queue, Event
 import multiprocessing as mp
 
+normal_material = Material(0.8, 0.95)
+flipper_material = Material(1.1, 1.0)
+speed = 8.5
 def precalc_colls(ball: Ball, forms: FormHandler, queue: Queue, stop_event):
     ball = copy.deepcopy(ball)
     i = 0
@@ -22,12 +26,13 @@ def precalc_colls(ball: Ball, forms: FormHandler, queue: Queue, stop_event):
     while not stop_event.is_set():
         #print(f"i: {i}")
         if remove_dup and prev_obj is not None and prev_obj:
+            print("removing dup")
             coll = forms.find_collision(ball, ignore=[prev_obj])
             remove_dup = False
         else:
             coll = forms.find_collision(ball)
         assert coll is not None
-        if coll.obj is prev_obj and math.isclose(coll.time + ball.start_t, prev_coll_t, abs_tol=0.01):
+        if coll.obj is prev_obj and math.isclose(coll.time + ball.start_t, prev_coll_t, abs_tol=0.0001) and False:
             print("remove dup")
             remove_dup = True
             prev_coll_t = coll.time + ball.start_t
@@ -53,10 +58,10 @@ def make_flipper(line: LineForm, rot_point: Vec, up_angle: float, down_angle: fl
     speed = (up_angle - down_angle)/turn_duration
 
     if curr_up:
-        rotating_line = RotateForm(up_line, rot_point, -0.1, -speed, curr_time)
+        rotating_line = RotateForm(up_line, rot_point, -0.0, -speed, curr_time)
         return TempForm(rotating_line, turn_duration + curr_time, down_line)
     else:
-        rotating_line = RotateForm(down_line, rot_point, -0.1, speed, curr_time)
+        rotating_line = RotateForm(down_line, rot_point, -0.0, speed, curr_time)
         return TempForm(rotating_line, turn_duration + curr_time, up_line)
 
 render = True
@@ -72,23 +77,23 @@ if render:
 
     dt = 0.001
     # create ball
-    ball = Ball(Vec(250, 400), 50, "red").with_acc(Vec(0, 90.8)).with_vel(Vec(
+    ball = Ball(Vec(250, 600), 50, "red").with_acc(Vec(0, 90.8)).with_vel(Vec(
         70, 0.1
     ))
     form_handler = FormHandler()
     # ränder
-    form_handler.add_form(LineForm(Vec(0, 0), Vec(1280, 0), 50))
-    form_handler.add_form(LineForm(Vec(0, 0), Vec(0, 720), 50))
-    form_handler.add_form(LineForm(Vec(1280, 0), Vec(1280, 720), 50))
-    form_handler.add_form(LineForm(Vec(0, 720), Vec(1280, 720), 50))
+    form_handler.add_form(LineForm(Vec(0, 0), Vec(1280, 0), 50, material=normal_material))
+    form_handler.add_form(LineForm(Vec(0, 0), Vec(0, 720), 50, material=normal_material))
+    form_handler.add_form(LineForm(Vec(1280, 0), Vec(1280, 720), 50, material=normal_material))
+    form_handler.add_form(LineForm(Vec(0, 720), Vec(1280, 720), 50, material=normal_material))
 
     #boden = LineForm(Vec(100, 600), Vec(1280, 400), 50)
     #form_handler.add_form(CircleForm(Vec(600, 1600), 1200,
     #                   4,5, 1000))
     #form_handler.add_form(CircleForm(Vec(500, 300), 100, 0, 2, 1000))
-    form_handler.add_form(CircleForm(Vec(700, 300), 100, 4, 6, 1000))
+    form_handler.add_form(CircleForm(Vec(700, 300), 100, normal_material, 4, 6, 1000))
     # a rotated line
-    flipper_line = LineForm(Vec(100,620), Vec(450,720), 50)
+    flipper_line = LineForm(Vec(100,620), Vec(450,720), 50, material=flipper_material)
     flipper_line_rotated = make_flipper(flipper_line, Vec(100, 620), 0, 0, 0.001, True)
     flipper_line_rotated.is_end = True
     flipper = FormContainer(flipper_line_rotated, name="flipper")
@@ -114,7 +119,7 @@ if render:
     #passed = (time.time_ns() - start_time)/(10**6)
     #print(f"calculating took {passed} ms")
     def calc_time():
-        return (time.time_ns() - start_time)/(10**(8.8))
+        return (time.time_ns() - start_time)/(10**(speed))
     def stop_process(p, evt):
         evt.set()
         #p.join()
@@ -187,7 +192,8 @@ if render:
         passed = calc_time()
         # ball.pos_0 = bahn.get_pos(passed)
         looped = False
-        while passed > next_coll_t+ ball.start_t:
+        while passed > next_coll_t+ ball.start_t:# and k < 2:
+            print(f"{passed} > {next_coll_t+ ball.start_t}, diff: {passed - (next_coll_t+ ball.start_t)}")
             looped = True
             #print(f"coll, prev_veL: {ball.bahn.deriv().apply(passed).magnitude()}, next_vel: {next_ball.vel_0.magnitude()}")
             ball = next_ball
