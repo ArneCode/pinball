@@ -2,7 +2,7 @@ from __future__ import annotations
 from typing import Callable, Dict, Optional, List, Tuple
 import numbers
 import math
-from interval import Interval
+from interval import Interval, SimpleInterval
 
 
 class Polynom:
@@ -117,7 +117,13 @@ class Polynom:
         return Polynom(self.koefs[0:non0_end])
 
     def __str__(self) -> str:
-        return f"Polynom{{{self.koefs}}}"
+        s = "Polynom{"
+        for (i, k) in enumerate(self.koefs):
+            s += f"{k}*t^{i} + "
+        s = s[:-3]
+        s += "}"
+        return s
+        #return f"Polynom{{{self.koefs}}}"
 
     def get_grad(self) -> int:
         return len(self.koefs) - 1
@@ -145,7 +151,8 @@ class Polynom:
 
         elif do_numeric and x_range is not None:
             assert x_range is not None
-            result = self.smallest_root_bisect(x_range, return_smallest=return_smallest)
+            #result = self.smallest_root_bisect(x_range, return_smallest=return_smallest)
+            return self.smallest_root_bisect_old(x_range, return_smallest=return_smallest, filter_fn=filter_fn)
         if x_range is not None:
             result = list(filter(x_range.check, result))
         if filter_fn is not None:
@@ -157,7 +164,8 @@ class Polynom:
     
     # find roots using midnight formula etc.
     def find_roots_algebraic(self, x_range: Optional[Interval] = None, return_smallest=True) -> List[float]:
-        this = self.reduce()
+        #this = self.reduce()
+        this = self
         result = []
         if this.get_grad() < 1:
             raise ValueError(f"cannot find the roots of: {this}")
@@ -176,6 +184,8 @@ class Polynom:
             x1 = (-b + root)/(2*a)
             x2 = (-b - root)/(2*a)
             result = [x1, x2]
+        else:
+            raise ValueError(f"cannot find the roots of: {this}, too high degree: {this.get_grad()}")
         if x_range is not None:
             result = list(filter(x_range.check, result))
         if return_smallest and len(result) > 0:
@@ -216,32 +226,30 @@ class Polynom:
         return curr_roots
 
 
-    def smallest_root_bisect_old(self, x_range: Interval, n_steps=1000, return_smallest=True) -> List[float]:
+    def smallest_root_bisect_old(self, x_range: Optional[Interval] = None, n_steps=1000, return_smallest=True, filter_fn: Optional[Callable[[float], bool]] = None) -> List[float]:
         """
         find roots using the bisection method
         """
+        if x_range is None or True:
+            x_range = SimpleInterval(0.0, 10.0)
         prev_x = None
         prev_y = None
         results: List[float] = []
         for x in x_range.step_through(n_steps):
-
+            #print(f"x: {x}")
             y = self.apply(x)
+            result = None
             if (prev_y is not None) and prev_y < 0 and y >= 0:
                 result = self.root_bisect(prev_x, x)
-                results.append(result)
-                if return_smallest:
-                    return results
-                # if return_list:
-                #     results.append(result)
-                # else:
-                #     return result
             elif (prev_y is not None) and prev_y >= 0 and y < 0:
                 result = self.root_bisect(x, prev_x)
-                results.append(result)
-                if return_smallest:
-                    return results
-                # else:
-                #     return result
+            if result is not None:
+                if (filter_fn is None or filter_fn(result)):
+                    if result < 0.1:
+                        raise ValueError(f"prev_y: {prev_y}, y: {y}, prev_x: {prev_x}, x: {x}, result: {result}, self: {self}")
+                    results.append(result)
+                    if return_smallest: #hässlich
+                        return results
             prev_x = x
             prev_y = y
         # return results if return_list else None
@@ -262,7 +270,7 @@ class Polynom:
         yb = self.apply(b)
         i = 0
 
-        while not math.isclose(yb, 0.0, abs_tol=0.0001) and i < max_steps:
+        while not math.isclose(yb, 0.0, abs_tol=0.0001) and i < max_steps and i > 1:
             #print(f"ya: {ya}, yb: {yb}")
             mid = (a+b)/2
             ym = self.apply(mid)

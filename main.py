@@ -5,7 +5,8 @@ import time
 from typing import Set, Tuple
 import pygame
 from ball import Ball
-from form import CircleForm, FormContainer, FormHandler, LineForm, RotateForm, TempForm
+from form import CircleForm, FormContainer, LineForm, NoneForm, RotateForm, TempForm
+from formhandler import FormHandler
 from interval import SimpleInterval
 from material import Material
 from polynom import Polynom
@@ -16,15 +17,15 @@ import multiprocessing as mp
 
 normal_material = Material(0.8, 0.95)
 flipper_material = Material(1.1, 1.0)
-speed = 8.5
-def precalc_colls(ball: Ball, forms: FormHandler, queue: Queue, stop_event):
+speed = 10.0
+def precalc_colls(ball: Ball, forms: FormHandler, queue: Queue[Tuple[float, Ball, FormHandler]], stop_event):
     ball = copy.deepcopy(ball)
     i = 0
     prev_obj = None
     prev_coll_t = 0
     remove_dup = False
     while not stop_event.is_set():
-        #print(f"i: {i}")
+       # print(f"i: {i}")
         if remove_dup and prev_obj is not None and prev_obj:
             print("removing dup")
             coll = forms.find_collision(ball, ignore=[prev_obj])
@@ -32,7 +33,7 @@ def precalc_colls(ball: Ball, forms: FormHandler, queue: Queue, stop_event):
         else:
             coll = forms.find_collision(ball)
         assert coll is not None
-        if coll.obj is prev_obj and math.isclose(coll.time + ball.start_t, prev_coll_t, abs_tol=0.0001) and False:
+        if coll.obj is prev_obj and math.isclose(coll.time + ball.start_t, prev_coll_t, abs_tol=0.1) and False:
             print("remove dup")
             remove_dup = True
             prev_coll_t = coll.time + ball.start_t
@@ -44,7 +45,7 @@ def precalc_colls(ball: Ball, forms: FormHandler, queue: Queue, stop_event):
                 ball.get_pos(coll.time+ball.start_t - 0.001)).with_vel(dir*(1))
         
         prev_obj = coll.obj
-        queue.put((coll.time, ball))
+        queue.put((coll.time, ball, forms))
         i += 1
     print("exit")
     raise SystemExit
@@ -78,26 +79,33 @@ if render:
     dt = 0.001
     # create ball
     ball = Ball(Vec(250, 600), 50, "red").with_acc(Vec(0, 90.8)).with_vel(Vec(
-        70, 0.1
+        200, 0.1
     ))
-    form_handler = FormHandler()
+    #x = Polynom([0, 1])
+    #new_bahn = Vec((x**0)*1229.6231817424573 + (x**1)*(-376.81825756158787), (x**0)*55.43841365643251 + x*(-561.5152209065546) + (x**2)*45.4)
+    #ball = ball.with_bahn(new_bahn).with_start_t(0.0)
+    start_forms = FormHandler()
     # ränder
-    form_handler.add_form(LineForm(Vec(0, 0), Vec(1280, 0), 50, material=normal_material))
-    form_handler.add_form(LineForm(Vec(0, 0), Vec(0, 720), 50, material=normal_material))
-    form_handler.add_form(LineForm(Vec(1280, 0), Vec(1280, 720), 50, material=normal_material))
-    form_handler.add_form(LineForm(Vec(0, 720), Vec(1280, 720), 50, material=normal_material))
+    start_forms.add_form(LineForm(Vec(0, 0), Vec(1280, 0), 50, material=normal_material))
+    start_forms.add_form(LineForm(Vec(0, 0), Vec(0, 720), 50, material=normal_material))
+    start_forms.add_form(LineForm(Vec(1280, 0), Vec(1280, 720), 50, material=normal_material))
+    start_forms.add_form(LineForm(Vec(0, 720), Vec(1280, 720), 50, material=normal_material))
 
     #boden = LineForm(Vec(100, 600), Vec(1280, 400), 50)
     #form_handler.add_form(CircleForm(Vec(600, 1600), 1200,
     #                   4,5, 1000))
-    #form_handler.add_form(CircleForm(Vec(500, 300), 100, 0, 2, 1000))
-    form_handler.add_form(CircleForm(Vec(700, 300), 100, normal_material, 4, 6, 1000))
+    #form_handler.add_form(CircleForm(Vec(500, 300), 100, normal_material,0, 2, 1000))
+    start_forms.add_form(CircleForm(Vec(700, 300), 100, normal_material, 4, 6, 1000))
+    start_forms.add_form(CircleForm(Vec(900, 300), 100, normal_material, 4, 6, 1000))
+    # line
+    #form_handler.add_form(LineForm(Vec(100, 620), Vec(450, 720), 50, material=normal_material))
     # a rotated line
     flipper_line = LineForm(Vec(100,620), Vec(450,720), 50, material=flipper_material)
+    # print(f"flipper steep: {flipper_line.paths[1].eq_x}, {flipper_line.paths[1].eq_y}")
     flipper_line_rotated = make_flipper(flipper_line, Vec(100, 620), 0, 0, 0.001, True)
     flipper_line_rotated.is_end = True
-    flipper = FormContainer(flipper_line_rotated, name="flipper")
-    form_handler.add_form(flipper)
+    #flipper = FormContainer(flipper_line_rotated, name="flipper")
+    start_forms.set_named_form("flipper", flipper_line_rotated)
     #rotateform: def __init__(self, form: Form, center: Vec[float], start_angle: float, angle_speed: float, time_interval: SimpleInterval):
     
     #line_rotated = RotateForm(line, Vec(0, 720), 0, 0.2)
@@ -107,39 +115,66 @@ if render:
     #line_temped = TempForm(line_rotated, 10, line_fixed)
     #form_handler.add_form(line_temped)
 
-    queue: Queue[Tuple[float, Ball]] = mp.Queue()
+    queue: Queue[Tuple[float, Ball, FormHandler]] = mp.Queue()
     stop_event = mp.Event()
     # start a thread to precalculate collisions
-    coll_process = mp.Process(target=precalc_colls, args=(ball, form_handler, queue, stop_event))
+    coll_process = mp.Process(target=precalc_colls, args=(ball, start_forms, queue, stop_event))
     coll_process.start()
-    next_coll_t, next_ball = queue.get()
+    next_coll_t, next_ball, next_forms = queue.get()
     # bahn = ball.gen_flugbahn(-9.8, 6)
     start_time = time.time_ns()
     #coll = form_handler.find_collision(ball)
     #passed = (time.time_ns() - start_time)/(10**6)
     #print(f"calculating took {passed} ms")
+    curr_forms = start_forms
+    last_time = 0
     def calc_time():
-        return (time.time_ns() - start_time)/(10**(speed))
+        return last_time + (time.time_ns() - start_time)/(10**(speed))
     def stop_process(p, evt):
         evt.set()
         #p.join()
-    def restart_process():
-        global queue, next_coll_t, next_ball, ball
-        curr_t = calc_time()
+    def restart_process(curr_t: float):
+        global queue, next_coll_t, next_ball, ball, curr_forms, next_forms
+        #curr_t = calc_time()
         ball = ball.from_time(curr_t)
         stop_event.clear()
         queue = mp.Queue()
-        coll_process = mp.Process(target=precalc_colls, args=(ball, form_handler, queue, stop_event))
+        coll_process = mp.Process(target=precalc_colls, args=(ball, curr_forms, queue, stop_event))
         coll_process.start()
-        next_coll_t, next_ball = queue.get()
+        next_coll_t, next_ball, next_forms = queue.get()
     curr_pressed: Set[int] = set()
     flipper_moving_up = False
     def handle_keydown(key: int):
+        global speed, last_time, start_time, curr_forms
         curr_pressed.add(key)
         # if key == pygame.K_SPACE:
         #     stop_process(coll_process, stop_event)
         #     flipper.set(make_flipper(flipper_line, Vec(100, 620), 1, 0, 1, False, calc_time()))
         #     restart_process()
+        # if key is the letter "k":
+        if key == pygame.K_k:
+            t = calc_time()
+            stop_process(coll_process, stop_event)
+            curr_forms = curr_forms.clone()
+            curr_forms.remove_named_form("flipper")
+            #flipper.set(NoneForm())
+            restart_process(t)
+        # if key is the letter "f", make game faster
+        print(f"speed: {speed}")
+            
+        if key == pygame.K_f:
+            #global speed
+            last_time = calc_time()
+            start_time = time.time_ns()
+            speed -= 0.1
+        # if key is the letter "s", make game slower
+        if key == pygame.K_s:
+            #global speed
+            last_time = calc_time()
+            start_time = time.time_ns()
+            speed += 0.1
+            
+            print(f"speed: {speed}")
 
         
     def handle_keyup(key):
@@ -149,10 +184,31 @@ if render:
         #     flipper.set(make_flipper(flipper_line, Vec(100, 620), 1, 0, 1, True, calc_time()))
         #     restart_process()
     
-    
+    def fetch_collisions(passed: float):
+        global queue, next_coll_t, next_ball, ball, curr_forms, next_forms, k
+        colls = 0
+        while passed > next_coll_t+ ball.start_t and colls < 10:# and k < 1:
+            colls += 1
+            if next_coll_t < 0.1 and False:
+                ball.draw(next_coll_t + ball.start_t, screen)
+                pygame.display.flip()
+                raise ValueError(f"next_coll_t < 0.01, ball_bahn: {ball.bahn}")
+            print(f"{passed} > {next_coll_t+ ball.start_t}, diff: {passed - (next_coll_t+ ball.start_t)}, next_coll_t: {next_coll_t}")
+            #looped = True
+            #print(f"coll, prev_veL: {ball.bahn.deriv().apply(passed).magnitude()}, next_vel: {next_ball.vel_0.magnitude()}")
+            ball = next_ball
+            curr_forms = next_forms
+            next_coll_t, next_ball, next_forms = queue.get()
+            print(f"next time: {passed} > {next_coll_t+ ball.start_t}, diff: {passed - (next_coll_t+ ball.start_t)}, next_coll_t: {next_coll_t}")
+            #print(f"next_coll_t: {next_coll_t}, next_ball: {next_ball}")
+            energy = ball.vel_0.magnitude()**2/2 + ball.pos_0.y*9.8
+            #print(f"energy: {energy}, k: {k}")
+            k += 1
     #print(f"coll_t: {coll.time}")
     k = 0
+    curr_pressed.add(pygame.K_SPACE)
     while running:
+        #print(f"curr_forms: {curr_forms}")
         #print(f"queue size: {queue.qsize()}, curr_pressed: {curr_pressed}")
         # poll for events
         # pygame.QUIT event means the user clicked X to close your window
@@ -167,20 +223,33 @@ if render:
                 handle_keydown(event.key)
             elif event.type == pygame.KEYUP:
                 handle_keyup(event.key)
-        assert isinstance(flipper.form, TempForm)
-        move_ended = calc_time() > flipper.form.form_duration
-        if pygame.K_SPACE in curr_pressed and not flipper_moving_up and move_ended:
-            print("a")
-            stop_process(coll_process, stop_event)
-            flipper.set(make_flipper(flipper_line, Vec(100, 620), 1, 0, 1, False, calc_time()))
-            restart_process()
-            flipper_moving_up = True
-        elif pygame.K_SPACE not in curr_pressed and flipper_moving_up and move_ended:
-            print("b")
-            stop_process(coll_process, stop_event)
-            flipper.set(make_flipper(flipper_line, Vec(100, 620), 1, 0, 1, True, calc_time()))
-            restart_process()
-            flipper_moving_up = False
+        flipper = curr_forms.get_named_form("flipper")
+        if flipper is not None and isinstance(flipper, TempForm):
+            move_ended = calc_time() > flipper.form_duration
+            if pygame.K_SPACE in curr_pressed and not flipper_moving_up and move_ended:
+                print("a")
+                t = calc_time()
+                fetch_collisions(t)
+                stop_process(coll_process, stop_event)
+                curr_forms = curr_forms.clone()
+                curr_forms.set_named_form("flipper", make_flipper(flipper_line, Vec(100, 620), 1, 0, 1, False, t))
+                #flipper.set(make_flipper(flipper_line, Vec(100, 620), 1, 0, 1, False, t))
+                restart_process(t)
+                flipper_moving_up = True
+            elif pygame.K_SPACE not in curr_pressed and flipper_moving_up and move_ended:
+                print("b")
+                t = calc_time()
+                fetch_collisions(t)
+                stop_process(coll_process, stop_event)
+                curr_forms = curr_forms.clone()
+                curr_forms.set_named_form("flipper", make_flipper(flipper_line, Vec(100, 620), 1, 0, 1, True, t))
+                #flipper.set(make_flipper(flipper_line, Vec(100, 620), 1, 0, 1, True, t))
+                restart_process(t)
+                flipper_moving_up = False
+        if pygame.K_s in curr_pressed:
+            speed += 0.01
+        if pygame.K_f in curr_pressed:
+            speed -= 0.01
 
                 #coll_process.join()
         if not running:
@@ -188,40 +257,13 @@ if render:
         # fill the screen with a color to wipe away anything from last frame
         screen.fill("black")
 
+
         # ball.update(dt)
         passed = calc_time()
+        curr_forms.draw(screen, (0, 255, 0), passed)
         # ball.pos_0 = bahn.get_pos(passed)
-        looped = False
-        while passed > next_coll_t+ ball.start_t:# and k < 2:
-            print(f"{passed} > {next_coll_t+ ball.start_t}, diff: {passed - (next_coll_t+ ball.start_t)}")
-            looped = True
-            #print(f"coll, prev_veL: {ball.bahn.deriv().apply(passed).magnitude()}, next_vel: {next_ball.vel_0.magnitude()}")
-            ball = next_ball
-            next_coll_t, next_ball = queue.get()
-            #print(f"next_coll_t: {next_coll_t}, next_ball: {next_ball}")
-            energy = ball.vel_0.magnitude()**2/2 + ball.pos_0.y*9.8
-            #print(f"energy: {energy}, k: {k}")
-            k += 1
-            # dir = coll.get_result_dir()  # *(-50)
-            # ball = ball.with_start_t(coll.time + ball.start_t).with_start_pos(
-            #     ball.get_pos(coll.time+ball.start_t - 0.0001)).with_vel(dir*(1))  # .with_acc(Vec(0.0, 0.0))
-            # print(f"ball pos: {ball.pos_0}, actually: {ball.get_pos(passed)}")
-            # coll = form_handler.find_collision(ball)
-            #coll.time = float("inf")
-            #if coll is None:
-            #    print("found no collision")
-            #else:
-            #    i += 1
-            #    print(f"found coll: {coll.time}, i: {i}")
-        
-
-        # screen.fill("black")
-        # boden.draw(screen, (0, 255, 0))
-        # continue
-
-        # RENDER YOUR GAME HERE
-        form_handler.draw(screen, (0, 255, 0), passed)
-        #line_rotated.draw(screen, (0, 255, 0), passed)
+        #looped = False
+        fetch_collisions(passed)
 
         ball.draw(passed, screen)
         # flip() the display to put your work on screen

@@ -212,11 +212,6 @@ class RotateForm(Form):
         form_rotated.draw(screen, color, time)
         return
 
-        pts = self.form.get_points()
-        new_pts = map(lambda pt: pt.rotate(angle, self.center), pts)
-        new_pts_tuple = list(map(lambda pt: (pt.x, pt.y), new_pts))
-        pygame.draw.lines(screen, color, False, new_pts_tuple, width=3)
-
     def find_collision(self, ball: Ball, ignore: List[Path] = []):
         # print(f"finding collision for rotateform, ball: {ball}")
         # rotate the ball trajectory
@@ -225,7 +220,7 @@ class RotateForm(Form):
         angle = (t-self.start_time+ball.start_t) * \
             (-self.angle_speed)-self.start_angle
         bahn = ball.bahn.rotate_poly(angle, self.center, 6)
-        # print(f"bahn: {bahn}")
+        print(f"bahn rotated: {bahn}")
         # calculate the collision
         coll = self.form.find_collision(ball.with_bahn(bahn), ignore)
         # print(f"found coll: {coll}")
@@ -245,7 +240,6 @@ class TempForm(Form):
     start_form: Form
     form_duration: float
     end_form: Form
-    is_end: bool
     name: str
     i = 0
 
@@ -253,7 +247,6 @@ class TempForm(Form):
         self. start_form = start_form
         self.form_duration = form_duration
         self.end_form = end_form
-        self.is_end = False
 
     def draw(self, screen, color, time: float):
         if time is None:
@@ -270,7 +263,7 @@ class TempForm(Form):
         #    return None
         self.i += 1
         # print(f"collision nr {self.i}, ball_start_t: {ball.start_t}:")
-        if self.is_end:
+        if ball.start_t >= self.form_duration:
             # print("is already end")
             return self.end_form.find_collision(ball, ignore)
 
@@ -287,7 +280,6 @@ class TempForm(Form):
             # print(f"collision in end form {coll_end.time + ball.start_t} >= {self.form_duration}")
             # raise ValueError("test")
             print("is end")
-            self.is_end = True
             return coll_end
         # else:
             # print(f"no collision in end form {coll_end.time + ball.start_t} < {self.form_duration}, coll: {coll_end.time}")
@@ -319,26 +311,13 @@ class FormContainer(Form):
     def set(self, form: Form):
         self.form = form
 
-
-class FormHandler:
-    forms: List[Form]
-
+class NoneForm(Form):
     def __init__(self):
-        self.forms = []
-
-    def add_form(self, form: Form):
-        self.forms.append(form)
-
+        pass
     def draw(self, screen, color, time: float):
-        for form in self.forms:
-            form.draw(screen, color, time)
-
+        pass
     def find_collision(self, ball: Ball, ignore: List[Path] = []):
-        first_coll = None
-        for form in self.forms:
-            coll = form.find_collision(ball, ignore)
-            if coll is None:
-                continue
-            if first_coll is None or coll.time < first_coll.time:
-                first_coll = coll
-        return first_coll
+        return None
+    def get_name(self):
+        return "noneform"
+
