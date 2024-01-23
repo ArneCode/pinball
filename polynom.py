@@ -3,6 +3,7 @@ from typing import Callable, Dict, Optional, List, Tuple
 import numbers
 import math
 from interval import Interval, SimpleInterval
+import numpy as np
 
 
 class Polynom:
@@ -152,7 +153,14 @@ class Polynom:
         elif do_numeric and x_range is not None:
             assert x_range is not None
             #result = self.smallest_root_bisect(x_range, return_smallest=return_smallest)
-            return self.smallest_root_bisect_old(x_range, return_smallest=return_smallest, filter_fn=filter_fn)
+            result = np.roots(self.koefs[::-1])
+            result = list(filter(np.isreal, result))
+            result = np.real(result)
+            result = list(filter(lambda x: x>0.1, result))
+            #old_result = self.smallest_root_bisect_old(x_range, return_smallest=return_smallest, filter_fn=filter_fn)
+            #if len(result) > 0:
+            #    print(f"result: {result}, old_result: {old_result}")
+            #return old_result
         if x_range is not None:
             result = list(filter(x_range.check, result))
         if filter_fn is not None:
@@ -231,7 +239,7 @@ class Polynom:
         find roots using the bisection method
         """
         if x_range is None or True:
-            x_range = SimpleInterval(0.0, 10.0)
+            x_range = SimpleInterval(0.5, 50.0)
         prev_x = None
         prev_y = None
         results: List[float] = []

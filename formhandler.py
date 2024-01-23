@@ -8,10 +8,20 @@ from path import Path
 
 
 class FormHandler:
+    """
+    Handels all forms in the game
+    """
     forms: List[Form]
     named_forms: Dict[str, Form]
 
     def __init__(self, forms: Optional[List[Form]] = None, named_forms: Optional[Dict[str, Form]] = None):
+        """
+        initializes the formhandler
+
+        Args:
+            forms (List[Form], optional): list of forms. Defaults to None.
+            named_forms (Dict[str, Form], optional): dict of named forms. Defaults to None.
+        """
         if forms is None:
             forms = []
         if named_forms is None:
@@ -19,13 +29,38 @@ class FormHandler:
         self.forms = forms
         self.named_forms = named_forms
     def clone(self) -> FormHandler:
+        """
+        clones the formhandler
+
+        Returns:
+            FormHandler: the cloned formhandler
+        """
         return FormHandler(copy.copy(self.forms), copy.copy(self.named_forms))
 
     def add_form(self, form: Form):
+        """Adds a form to the formhandler
+        
+        Args:
+            form (Form): the form to add
+        """
         self.forms.append(form)
     def set_named_form(self, name: str, form: Form):
+        """Sets a named form
+
+        Args:
+            name (str): the name of the form
+            form (Form): the form to set
+        """
         self.named_forms[name] = form
     def get_named_form(self, name: str) -> Optional[Form]:
+        """Returns a named form
+
+        Args:
+            name (str): the name of the form
+
+        Returns:
+            Optional[Form]: the form or None if not found
+        """
         if name not in self.named_forms:
             return None
         return self.named_forms[name]

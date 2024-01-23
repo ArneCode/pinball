@@ -7,7 +7,7 @@ from importlib import import_module
 class Collision:
     time: float
     bahn: Vec
-    #obj#: Path  # replace with interface
+    #obj: Path  # replace with interface
 
     def __init__(self, time: float, bahn: Vec, obj):
         self.time = time
@@ -22,12 +22,10 @@ class Collision:
         vel_before = self.bahn.deriv().apply(self.time)
 
         vel_ort, vel_par = vel_before.decompose(normal)
-        min_ort = 200.0
-        if vel_ort.magnitude() < min_ort:
-            vel_ort = vel_ort.normalize()*min_ort
-        min_par = -1.0
-        if vel_par.magnitude() < min_par:
-            vel_par = vel_par.normalize()*min_par
+        if vel_ort.magnitude() < material.min_ort:
+            vel_ort = vel_ort.normalize()*material.min_ort
+        if vel_par.magnitude() < material.min_par:
+            vel_par = vel_par.normalize()*material.min_par
         #print(f"vel_before: {vel_before}, vel_ort: {vel_ort}, vel_par: {vel_par}")
         #raise ValueError("stop")
         return vel_par*material.factor_par - vel_ort*material.factor_ort#(vel_par*0.95 - vel_ort*0.8)

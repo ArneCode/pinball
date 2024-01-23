@@ -19,6 +19,9 @@ class Path(ABC):
         pass
     @abstractmethod
     def find_collision(self, ball: Ball) -> Collision | None:
+        """
+        Returns the collision with the ball or None if there is no collision
+        """
         pass
     @abstractmethod
     def get_rotated(self, angle: float, center: Vec):
@@ -100,6 +103,18 @@ class CirclePath(Path):
     def get_material(self) -> Material:
         return self.material
 class LinePath(Path):
+    """
+    Represents a line the center of the ball can collide with
+
+    Attributes:
+        pos1 (Vec): the first point of the line
+        pos2 (Vec): the second point of the line
+        tangent (Vec): the tangent of the line
+        eq_x (Polynom): the equation of the line in x
+        eq_y (Polynom): the equation of the line in y
+        x_range (Interval): the range of x values in which the line is defined
+        y_range (Interval): the range of y values in which the line is defined
+    """
     pos1: Vec
     pos2: Vec
     tangent: Vec
@@ -110,6 +125,12 @@ class LinePath(Path):
     material: Material
 
     def __init__(self, pos1: Vec, pos2: Vec, material: Material):
+        """
+        Constructor for LinePath
+        Args:
+            pos1 (Vec): the first point of the line
+            pos2 (Vec): the second point of the line
+        """
         self.pos1 = pos1
         self.pos2 = pos2
         self.material = material
@@ -129,11 +150,31 @@ class LinePath(Path):
             steep = self.tangent.y/self.tangent.x
             self.eq_y = (x-pos1.x)*steep+pos1.y
     def get_normal(self, pos: Vec) -> Vec:
+        """
+        Returns the normal vector of the line at the given position
+
+        Args:
+            pos (Vec): the position, unused because the normal of a line is always the same
+        """
         return self.tangent.orhtogonal().normalize()
     def draw(self, screen, color):
+        """
+        Draws the line on the screen, used for debugging
+        """
         pygame.draw.line(screen, color, (self.pos1.x, self.pos1.y), (self.pos2.x, self.pos2.y), width=1)
 
     def find_collision(self, ball: Ball, interval: Interval = SimpleInterval(0.0, 100)) -> Collision | None:
+        """
+        Returns the collision with the center of the ball or None if there is no collision
+
+        Args:
+            ball (Ball): the ball to check for collision
+            interval (Interval, optional): the interval in which to search for collisions. Defaults to SimpleInterval(0.0, 100).
+
+        Returns:
+            Collision | None: the collision or None if there is no collision
+        """
+
         coll_eq: Polynom = self.eq_x.apply(ball.bahn.y) - self.eq_y.apply(ball.bahn.x)
         colls = coll_eq.find_roots(interval,return_smallest=False, do_numeric=True)
         
@@ -148,6 +189,13 @@ class LinePath(Path):
             return None
         return Collision(min_t, ball.bahn, self)
     def get_rotated(self, angle: float, center: Vec):
+        """
+        Returns a rotated version of this line
+
+        Args:
+            angle (float): the angle to rotate
+            center (Vec): the center of rotation
+        """
         return LinePath(self.pos1.rotate(angle, center), self.pos2.rotate(angle, center), self.material)
     def get_material(self) -> Material:
         return self.material

@@ -93,15 +93,15 @@ class CircleForm(StaticForm):
             # min cap:
             cap_pos = Vec(math.cos(min_angle)*radius + pos.x,
                           math.sin(min_angle)*radius + pos.y)
-            angle_a = min_angle - math.pi -0.1
-            angle_b = min_angle + 0.1
+            angle_a = min_angle - math.pi
+            angle_b = min_angle
             cap = CirclePath(cap_pos, ball_radius,material, angle_a, angle_b, "kant")
             self.paths.append(cap)
             # max cap:
             cap_pos = Vec(math.cos(max_angle)*radius + pos.x,
                           math.sin(max_angle)*radius + pos.y)
-            angle_a = max_angle - 0.1
-            angle_b = max_angle + math.pi + 0.1
+            angle_a = max_angle
+            angle_b = max_angle + math.pi
             cap = CirclePath(cap_pos, ball_radius, material, angle_a, angle_b, "kant")
             self.paths.append(cap)
 
@@ -114,7 +114,7 @@ class CircleForm(StaticForm):
             y = math.sin(a_r)*self.radius + self.pos.y
 
             self.points.append((x, y))
-            super().__init__(self.paths)
+        super().__init__(self.paths)
 
     def draw(self, screen, color, time: float):
         pygame.draw.lines(screen, color, False, self.points, width=3)
@@ -220,7 +220,6 @@ class RotateForm(Form):
         angle = (t-self.start_time+ball.start_t) * \
             (-self.angle_speed)-self.start_angle
         bahn = ball.bahn.rotate_poly(angle, self.center, 6)
-        print(f"bahn rotated: {bahn}")
         # calculate the collision
         coll = self.form.find_collision(ball.with_bahn(bahn), ignore)
         # print(f"found coll: {coll}")
@@ -232,10 +231,46 @@ class RotateForm(Form):
 
     def get_name(self):
         return self.name
+class TransformForm(Form):
+    """
+    Transform a form by a function
+    """
+    form: StaticForm
+    transform: Polynom
+    name: str
+
+    def __init__(self, form: StaticForm, transform: Polynom, name="transformform"):
+        self.form = form
+        self.transform = transform
+        self.name = name
+
+    def draw(self, screen: pygame.Surface, color, time: Optional[float] = None):
+        if time is None:
+            return
+        form_transformed = self.form.transform(self.transform)
+        form_transformed.draw(screen, color, time)
+        return
+
+    def find_collision(self, ball: Ball, ignore: List[Path] = []):
+        # print(f"finding collision for rotateform, ball: {ball}")
+        # rotate the ball trajectory
+        t = Polynom([0, 1])
+        # rotate the ball trajectory
+        bahn = ball.bahn.transform(self.transform)
+        print(f"bahn transformed: {bahn}")
+        # calculate the collision
+        coll = self.form.find_collision(ball.with_bahn(bahn), ignore)
+        # print(f"found coll: {coll}")
+        if coll is None:
+            return None
+        # calculate the objects angle at the time of collision
+        return coll
+
+    def get_name(self):
+        return self.name
+
 
 # A form that is a certain Form for a period of time and becomes another form afterwards
-
-
 class TempForm(Form):
     start_form: Form
     form_duration: float
