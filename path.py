@@ -94,9 +94,7 @@ class CirclePath(Path):
         #t_range: Interval | None = self.bound.times_inside(ball)
         check_eq: Polynom = ((ball.bahn.x-self.pos.x)**2 +
                     (ball.bahn.y-self.pos.y)**2 - (self.radius)**2)
-        t_range = SimpleInterval(0, 100)
-        coll = check_eq.find_roots(
-            t_range, return_smallest=True, do_numeric=True, filter_fn=lambda t: self.check_vec_angle(ball.bahn.apply(t)))
+        coll = check_eq.find_roots(filter_fn=lambda t: self.check_vec_angle(ball.bahn.apply(t)))
         if len(coll) > 0:
             return Collision(coll[0], ball.bahn, self)
         return None
@@ -180,7 +178,7 @@ class LinePath(Path):
         """
 
         coll_eq: Polynom = self.eq_x.apply(ball.bahn.y) - self.eq_y.apply(ball.bahn.x)
-        colls = coll_eq.find_roots(interval,return_smallest=False, do_numeric=True)
+        colls = coll_eq.find_roots()
         
         min_t = float("inf")
         for coll in colls:

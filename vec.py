@@ -47,8 +47,8 @@ class Vec(Generic[T]):
 
     def __mul__(self, other) -> Vec:
         # if the other is number:
-        if isinstance(other, numbers.Number):
-            return Vec(self.x*other, self.y*other)
+        #if isinstance(other, numbers.Number):
+        #    return Vec(self.x*other, self.y*other)
         return Vec(other*self.x, other*self.y)
 
     def apply(self, v) -> Vec:

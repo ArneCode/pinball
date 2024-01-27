@@ -79,6 +79,7 @@ def precalc_colls(in_queue: Queue[Tuple[List[Ball], FormHandler]], out_queues: L
                 first_coll_t = coll_time
                 first_coll_ball = i
         if first_coll is None:
+            continue
             raise Exception("no collision found")
         coll = first_coll
         ball = balls[first_coll_ball]

@@ -21,7 +21,7 @@ speed = 8.5
 
 
 pol = Polynom([6, -5, -2, 1])
-print(pol.smallest_root_bisect(SimpleInterval(-10, 10)))
+#print(pol.smallest_root_bisect(SimpleInterval(-10, 10)))
 
 
 def make_flipper(line: LineForm, rot_point: Vec, up_angle: float, down_angle: float, turn_duration: float, curr_up: bool, curr_time: float = 0):
@@ -52,7 +52,7 @@ if __name__ == "__main__":
     dt = 0.001
     balls = []
     # create ball
-    _ball = Ball(Vec(500, 550), 50, "red").with_acc(Vec(0, 0.1)).with_vel(Vec(
+    _ball = Ball(Vec(500, 550), 50, "red").with_acc(Vec(0, 9.81)).with_vel(Vec(
         -50, 0.5
     ))
 
@@ -63,12 +63,12 @@ if __name__ == "__main__":
     _ball3 = Ball(Vec(700, 550), 50, "red").with_acc(Vec(0, 0.1)).with_vel(Vec(
         -2, 0.1
     ))
-    balls.append(_ball3)
-    balls.append(_ball2)
+    #balls.append(_ball3)
+    #balls.append(_ball2)
     _ball4 = Ball(Vec(700, 200), 50, "red").with_acc(Vec(0, 0.1)).with_vel(Vec(
         -2, 0.1
     ))
-    balls.append(_ball4)
+    #balls.append(_ball4)
     ball_form = _ball2.get_form()
     coll = ball_form.find_collision(_ball)
     print(f"got coll: {coll}")
