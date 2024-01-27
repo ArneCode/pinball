@@ -1,3 +1,4 @@
+from __future__ import annotations
 import math
 from typing import List, Optional, Tuple
 import pygame
@@ -26,18 +27,23 @@ class Form(ABC):
     def get_name(self) -> str:
         pass
 
-    def find_collision(self, ball: Ball, ignore: List[Path] = []):
+    def find_collision(self, ball: Ball):
+        #print("finding collision for abstract form")
         first_coll = None
         for path in self.paths:
-            if path in ignore:
-                continue
+            #print(f"checking path: {path}")
             coll = path.find_collision(ball)
             if coll is None:
+                #print("no collision")
                 continue
+
             if first_coll is None or coll.time < first_coll.time:
                 first_coll = coll
+                #print(f"new first collision: {first_coll}")
         return first_coll
-
+    @abstractmethod
+    def get_material(self) -> Material:
+        pass
 
 class StaticForm(Form):
     @abstractmethod
@@ -45,7 +51,11 @@ class StaticForm(Form):
         pass
 
     @abstractmethod
-    def rotate(self, angle: float, center: Vec[float]):
+    def rotate(self, angle: float, center: Vec[float]) -> StaticForm:
+        pass
+
+    @abstractmethod
+    def transform(self, transform: Vec[float]) -> StaticForm:
         pass
 
 
@@ -79,13 +89,13 @@ class CircleForm(StaticForm):
             self.min_angle, self.max_angle), 0.0, abs_tol=0.001)
         if closed:
             outer_circle = CirclePath(
-                pos, radius + ball_radius, material, min_angle, max_angle)
+                pos, radius + ball_radius, self, min_angle, max_angle, "outer_circle")
             self.paths.append(outer_circle)
         else:
             outer_circle = CirclePath(
-                pos, radius + ball_radius, material, min_angle, max_angle)
+                pos, radius + ball_radius, self, min_angle, max_angle, "outer_circle")
             inner_circle = CirclePath(
-                pos, radius - ball_radius, material, min_angle, max_angle)
+                pos, radius - ball_radius, self, min_angle, max_angle, "inner_circle")
             self.paths.append(outer_circle)
             self.paths.append(inner_circle)
 
@@ -95,14 +105,14 @@ class CircleForm(StaticForm):
                           math.sin(min_angle)*radius + pos.y)
             angle_a = min_angle - math.pi
             angle_b = min_angle
-            cap = CirclePath(cap_pos, ball_radius,material, angle_a, angle_b, "kant")
+            cap = CirclePath(cap_pos, ball_radius,self, angle_a, angle_b, "min_cap")
             self.paths.append(cap)
             # max cap:
             cap_pos = Vec(math.cos(max_angle)*radius + pos.x,
                           math.sin(max_angle)*radius + pos.y)
             angle_a = max_angle
             angle_b = max_angle + math.pi
-            cap = CirclePath(cap_pos, ball_radius, material, angle_a, angle_b, "kant")
+            cap = CirclePath(cap_pos, ball_radius, self, angle_a, angle_b, "max_cap")
             self.paths.append(cap)
 
         step_size = (self.max_angle - self.min_angle)/resolution
@@ -131,9 +141,15 @@ class CircleForm(StaticForm):
     def get_name(self):
         return self.name
 
-    def rotate(self, angle: float, center: Vec[float]):
+    def rotate(self, angle: float, center: Vec[float]) -> StaticForm:
         new_pos = self.pos.rotate(angle, center)
         return CircleForm(new_pos, self.radius, self.material, self.min_angle+angle, self.max_angle+angle, name=self.name)
+    
+    def transform(self, transform: Vec[float]) -> StaticForm:
+        new_pos = self.pos + transform
+        return CircleForm(new_pos, self.radius, self.material, self.min_angle, self.max_angle, name=self.name)
+    def get_material(self) -> Material:
+        return self.material
 
 
 class LineForm(StaticForm):
@@ -148,21 +164,21 @@ class LineForm(StaticForm):
         self.pos1 = pos1
         self.pos2 = pos2
         self.paths = []
-        this_path = LinePath(pos1, pos2, material)
+        this_path = LinePath(pos1, pos2, self)
         self.name = name
         self.ball_radius = ball_radius
         self.material = material
         # create two paths, one for each side of the line, parrallel to the line
         # with a distance of ball_radius
         normal = this_path.get_normal(pos1)*ball_radius
-        self.paths.append(LinePath(pos1+normal, pos2+normal, material))
-        self.paths.append(LinePath(pos1-normal, pos2-normal, material))
+        self.paths.append(LinePath(pos1+normal, pos2+normal, self))
+        self.paths.append(LinePath(pos1-normal, pos2-normal, self))
         # calculate angle of line
         angle = math.atan2(pos2.y-pos1.y, pos2.x-pos1.x)
         # append circles at the ends of the line
-        self.paths.append(CirclePath(pos1, ball_radius, material,
+        self.paths.append(CirclePath(pos1, ball_radius, self,
                           angle+math.pi/2, angle-math.pi/2))
-        self.paths.append(CirclePath(pos2, ball_radius, material,
+        self.paths.append(CirclePath(pos2, ball_radius, self,
                           angle-math.pi/2, angle+math.pi/2))
         super().__init__(self.paths)
 
@@ -178,10 +194,16 @@ class LineForm(StaticForm):
     def get_name(self):
         return self.name
 
-    def rotate(self, angle: float, center: Vec[float]):
+    def rotate(self, angle: float, center: Vec[float]) -> StaticForm:
         new_pos1 = self.pos1.rotate(angle, center)
         new_pos2 = self.pos2.rotate(angle, center)
         return LineForm(new_pos1, new_pos2, self.ball_radius, self.material, self.name)
+    def transform(self, transform: Vec[float]) -> StaticForm:
+        new_pos1 = self.pos1 + transform
+        new_pos2 = self.pos2 + transform
+        return LineForm(new_pos1, new_pos2, self.ball_radius, self.material, self.name)
+    def get_material(self) -> Material:
+        return self.material
 
 
 class RotateForm(Form):
@@ -212,7 +234,7 @@ class RotateForm(Form):
         form_rotated.draw(screen, color, time)
         return
 
-    def find_collision(self, ball: Ball, ignore: List[Path] = []):
+    def find_collision(self, ball: Ball):
         # print(f"finding collision for rotateform, ball: {ball}")
         # rotate the ball trajectory
         t = Polynom([0, 1])
@@ -221,7 +243,7 @@ class RotateForm(Form):
             (-self.angle_speed)-self.start_angle
         bahn = ball.bahn.rotate_poly(angle, self.center, 6)
         # calculate the collision
-        coll = self.form.find_collision(ball.with_bahn(bahn), ignore)
+        coll = self.form.find_collision(ball.with_bahn(bahn))
         # print(f"found coll: {coll}")
         if coll is None:
             return None
@@ -231,15 +253,17 @@ class RotateForm(Form):
 
     def get_name(self):
         return self.name
+    def get_material(self) -> Material:
+        return self.form.get_material()
 class TransformForm(Form):
     """
     Transform a form by a function
     """
     form: StaticForm
-    transform: Polynom
+    transform: Vec[Polynom]
     name: str
 
-    def __init__(self, form: StaticForm, transform: Polynom, name="transformform"):
+    def __init__(self, form: StaticForm, transform: Vec[Polynom], name="transformform"):
         self.form = form
         self.transform = transform
         self.name = name
@@ -247,19 +271,19 @@ class TransformForm(Form):
     def draw(self, screen: pygame.Surface, color, time: Optional[float] = None):
         if time is None:
             return
-        form_transformed = self.form.transform(self.transform)
+        form_transformed = self.form.transform(self.transform.apply(time))
         form_transformed.draw(screen, color, time)
         return
 
-    def find_collision(self, ball: Ball, ignore: List[Path] = []):
+    def find_collision(self, ball: Ball):
         # print(f"finding collision for rotateform, ball: {ball}")
         # rotate the ball trajectory
         t = Polynom([0, 1])
         # rotate the ball trajectory
-        bahn = ball.bahn.transform(self.transform)
-        print(f"bahn transformed: {bahn}")
+        bahn = ball.bahn - self.transform.apply(t+ball.start_t)
+        #print(f"bahn transformed: {bahn}, ball bahn: {ball.bahn}")
         # calculate the collision
-        coll = self.form.find_collision(ball.with_bahn(bahn), ignore)
+        coll = self.form.find_collision(ball.with_bahn(bahn))
         # print(f"found coll: {coll}")
         if coll is None:
             return None
@@ -268,6 +292,8 @@ class TransformForm(Form):
 
     def get_name(self):
         return self.name
+    def get_material(self) -> Material:
+        return self.form.get_material()
 
 
 # A form that is a certain Form for a period of time and becomes another form afterwards
@@ -300,14 +326,14 @@ class TempForm(Form):
         # print(f"collision nr {self.i}, ball_start_t: {ball.start_t}:")
         if ball.start_t >= self.form_duration:
             # print("is already end")
-            return self.end_form.find_collision(ball, ignore)
+            return self.end_form.find_collision(ball)
 
-        coll_start = self.start_form.find_collision(ball, ignore)
+        coll_start = self.start_form.find_collision(ball)
         if coll_start is not None and coll_start.time + ball.start_t < self.form_duration:
             # print("collision in start form")
             return coll_start
 
-        coll_end = self.end_form.find_collision(ball, ignore)
+        coll_end = self.end_form.find_collision(ball)
         if coll_end is None:
             pass
             # print("coll in end form is none")
@@ -324,6 +350,8 @@ class TempForm(Form):
 
     def get_name(self):
         return self.name
+    def get_material(self) -> Material:
+        return self.start_form.get_material()
 
 
 class FormContainer(Form):
@@ -337,8 +365,8 @@ class FormContainer(Form):
     def draw(self, screen, color, time: float):
         self.form.draw(screen, color, time)
 
-    def find_collision(self, ball: Ball, ignore: List[Path] = []):
-        return self.form.find_collision(ball, ignore)
+    def find_collision(self, ball: Ball):
+        return self.form.find_collision(ball)
 
     def get_name(self):
         return self.name

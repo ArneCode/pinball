@@ -46,9 +46,12 @@ class Vec(Generic[T]):
         return Vec(math.cos(angle), math.sin(angle))
 
     def __mul__(self, other) -> Vec:
+        # if the other is number:
+        if isinstance(other, numbers.Number):
+            return Vec(self.x*other, self.y*other)
         return Vec(other*self.x, other*self.y)
 
-    def apply(self, v: float) -> Vec:
+    def apply(self, v) -> Vec:
         if isinstance(self.x, Polynom) and isinstance(self.y, Polynom):
             return Vec(self.x.apply(v), self.y.apply(v))
         else:

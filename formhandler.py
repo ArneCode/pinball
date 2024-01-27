@@ -75,10 +75,12 @@ class FormHandler:
         for name, form in self.named_forms.items():
             form.draw(screen, color, time)
 
-    def find_collision(self, ball: Ball, ignore: List[Path] = []):
+    def find_collision(self, ball: Ball, ignore: List[Form] = []):
         first_coll = None
         for form in self.forms + list(self.named_forms.values()):
-            coll = form.find_collision(ball, ignore)
+            if form in ignore:
+                continue
+            coll = form.find_collision(ball)
             if coll is None:
                 continue
             if first_coll is None or coll.time < first_coll.time:

@@ -133,7 +133,8 @@ class Polynom:
         this = self.reduce()
         result = []
         if this.get_grad() < 1:
-            raise ValueError(f"cannot find the roots of: {this}")
+            #raise ValueError(f"cannot find the roots of: {this}")
+            return []
         if this.get_grad() == 1:
             a = self.koefs[0]
             b = self.koefs[1]
@@ -149,14 +150,19 @@ class Polynom:
             x1 = (-b + root)/(2*a)
             x2 = (-b - root)/(2*a)
             result = [x1, x2]
+            result.sort()
 
         elif do_numeric and x_range is not None:
             assert x_range is not None
-            #result = self.smallest_root_bisect(x_range, return_smallest=return_smallest)
+            #result = self.smallest_root_bisect(x_range, return_smallest=return_smallest
             result = np.roots(self.koefs[::-1])
             result = list(filter(np.isreal, result))
             result = np.real(result)
+            #print(f"direct/dirty result: {result}")
+
             result = list(filter(lambda x: x>0.1, result))
+            result.sort()
+            #print(f"result: {result}")
             #old_result = self.smallest_root_bisect_old(x_range, return_smallest=return_smallest, filter_fn=filter_fn)
             #if len(result) > 0:
             #    print(f"result: {result}, old_result: {old_result}")

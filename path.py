@@ -30,8 +30,12 @@ class Path(ABC):
     def draw(self, screen, color):
         pass
     @abstractmethod
-    def get_material(self) -> Material:
+    def get_form(self):
         pass
+    #@abstractmethod
+    def get_material(self) -> Material:
+        return self.get_form().get_material()
+
 
 class CirclePath(Path):
     pos: Vec
@@ -41,9 +45,9 @@ class CirclePath(Path):
     #bound: BoundingBox
     min_angle: float
     max_angle: float
-    material: Material
 
-    def __init__(self, pos: Vec, radius, material: Material, min_angle: float = 0, max_angle: float = 2*math.pi, name=""):
+
+    def __init__(self, pos: Vec, radius, form, min_angle: float = 0, max_angle: float = 2*math.pi, name=""):
         while max_angle <= min_angle:
             max_angle += 2*math.pi
         self.pos = pos
@@ -52,7 +56,7 @@ class CirclePath(Path):
         self.name = name
         self.min_angle = min_angle
         self.max_angle = max_angle
-        self.material = material
+        self.form = form
 
         #if x_range is None:
         #    x_range = SimpleInterval(pos.x-radius, pos.x+radius)
@@ -83,6 +87,7 @@ class CirclePath(Path):
             self.bound.draw(screen, color)
     def check_vec_angle(self, pos: Vec) -> bool:
         angle = (pos-self.pos).get_angle()
+        
         return angle_between(angle, self.min_angle, self.max_angle)
     def find_collision(self, ball: Ball) -> Collision | None:
         # TODO: restrict searched t by already found!
@@ -97,11 +102,11 @@ class CirclePath(Path):
         return None
     def get_rotated(self, angle: float, center: Vec):
         new_pos = self.pos.rotate(angle, center)
-        return CirclePath(new_pos, self.radius, self.material, self.min_angle+angle, self.max_angle+angle, self.name)
+        return CirclePath(new_pos, self.radius, self.form, self.min_angle+angle, self.max_angle+angle, self.name)
     def __str__(self):
         return f"CirclePath(name: {self.name})"
-    def get_material(self) -> Material:
-        return self.material
+    def get_form(self):
+        return self.form
 class LinePath(Path):
     """
     Represents a line the center of the ball can collide with
@@ -122,9 +127,8 @@ class LinePath(Path):
     eq_y: Polynom
     x_range: Interval
     y_range: Interval
-    material: Material
 
-    def __init__(self, pos1: Vec, pos2: Vec, material: Material):
+    def __init__(self, pos1: Vec, pos2: Vec, form):
         """
         Constructor for LinePath
         Args:
@@ -133,7 +137,7 @@ class LinePath(Path):
         """
         self.pos1 = pos1
         self.pos2 = pos2
-        self.material = material
+        self.form = form
         self.tangent = (pos2-pos1).normalize()
         self.x_range = SimpleInterval(min(pos1.x, pos2.x), max(pos1.x, pos2.x))
         self.y_range = SimpleInterval(min(pos1.y, pos2.y), max(pos1.y, pos2.y))
@@ -196,6 +200,6 @@ class LinePath(Path):
             angle (float): the angle to rotate
             center (Vec): the center of rotation
         """
-        return LinePath(self.pos1.rotate(angle, center), self.pos2.rotate(angle, center), self.material)
-    def get_material(self) -> Material:
-        return self.material
+        return LinePath(self.pos1.rotate(angle, center), self.pos2.rotate(angle, center), self.form)
+    def get_form(self):
+        return self.form

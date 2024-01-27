@@ -2,6 +2,7 @@ import copy
 from typing import Tuple
 
 import pygame
+#from form import CircleForm#, TransformForm
 
 from vec import Vec
 from polynom import Polynom
@@ -66,3 +67,13 @@ class Ball:
         new_vel = self.bahn.deriv().apply(rel_t)
         print(f"new_pos: {new_pos}, new_vel: {new_vel}, rel_t: {rel_t}")
         return self.with_start_t(t).with_start_pos(new_pos).with_vel(new_vel)
+    def get_form(self):
+        from material import Material
+        from form import CircleForm, TransformForm
+        circle = CircleForm(Vec(0, 0), self.radius, material=Material(0.8, 0.95, 20, 1))
+        t = Polynom([0, 1])
+        x = self.bahn.x.apply(t-self.start_t)
+        y = self.bahn.y.apply(t-self.start_t)
+        bahn = Vec(x, y)
+        moving_circle = TransformForm(circle, bahn)
+        return moving_circle

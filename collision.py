@@ -13,6 +13,8 @@ class Collision:
         self.time = time
         self.bahn = bahn
         self.obj = obj
+    def get_obj_form(self):
+        return self.obj.get_form()
 
     def get_result_dir(self) -> Vec:
        # print(f"obj: {self.obj}")
@@ -29,6 +31,8 @@ class Collision:
         #print(f"vel_before: {vel_before}, vel_ort: {vel_ort}, vel_par: {vel_par}")
         #raise ValueError("stop")
         return vel_par*material.factor_par - vel_ort*material.factor_ort#(vel_par*0.95 - vel_ort*0.8)
+    def __str__(self):
+        return f"Collision(time: {self.time}, bahn: {self.bahn}, obj: {self.obj})"
 class RotatedCollision(Collision):
     angle: float
     def __init__(self, collision: Collision, angle: float):

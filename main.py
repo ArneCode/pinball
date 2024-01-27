@@ -6,20 +6,18 @@ import time
 from typing import Set, Tuple
 import pygame
 from ball import Ball
-from form import CircleForm, FormContainer, LineForm, NoneForm, RotateForm, TempForm
+from form import CircleForm, FormContainer, LineForm, NoneForm, RotateForm, TempForm, TransformForm
 from formhandler import FormHandler
 from interval import SimpleInterval
 from material import Material
 from polynom import Polynom
 from vec import Vec
-# use queue from multiprocessing to communicate between threads
-from multiprocessing import Queue
-import multiprocessing as mp
+
 from coll_thread import CollThread
 
 normal_material = Material(0.8, 0.95, 20, 1)
 flipper_material = Material(1.1, 1.0, 30, 0.0)
-speed = 8.0
+speed = 8.5
 
 
 pol = Polynom([6, -5, -2, 1])
@@ -52,14 +50,44 @@ if __name__ == "__main__":
     i = 0
 
     dt = 0.001
+    balls = []
     # create ball
-    ball = Ball(Vec(250, 600), 50, "red").with_acc(Vec(0, 9.8)).with_vel(Vec(
+    _ball = Ball(Vec(500, 550), 50, "red").with_acc(Vec(0, 0.1)).with_vel(Vec(
+        -50, 0.5
+    ))
+
+    balls.append(_ball)
+    _ball2 = Ball(Vec(250, 550), 50, "red").with_acc(Vec(0, 0.1)).with_vel(Vec(
         2, 0.1
     ))
+    _ball3 = Ball(Vec(700, 550), 50, "red").with_acc(Vec(0, 0.1)).with_vel(Vec(
+        -2, 0.1
+    ))
+    balls.append(_ball3)
+    balls.append(_ball2)
+    _ball4 = Ball(Vec(700, 200), 50, "red").with_acc(Vec(0, 0.1)).with_vel(Vec(
+        -2, 0.1
+    ))
+    balls.append(_ball4)
+    ball_form = _ball2.get_form()
+    coll = ball_form.find_collision(_ball)
+    print(f"got coll: {coll}")
+    #exit()
+    #balls.append(_ball)
+    start_forms = FormHandler()
+    #floating_ball = CircleForm(Vec(700,620), 100, normal_material, -3, 2)
+    #moving_ball = TransformForm(floating_ball, Vec(-x,-x)*3)
+    #start_forms.add_form(moving_ball)
+    #start_forms.add_form(floating_ball)
+    #coll = floating_ball.find_collision(_ball)
+    #print(f"got coll: {coll}")
+    #exit()
+
+    #start_forms.add_form(_ball.get_form())
+    #balls.append(_ball)
     # x = Polynom([0, 1])
     # new_bahn = Vec((x**0)*1229.6231817424573 + (x**1)*(-376.81825756158787), (x**0)*55.43841365643251 + x*(-561.5152209065546) + (x**2)*45.4)
     # ball = ball.with_bahn(new_bahn).with_start_t(0.0)
-    start_forms = FormHandler()
     # ränder
     start_forms.add_form(LineForm(Vec(0, 0), Vec(
         1280, 0), 50, material=normal_material))
@@ -74,10 +102,12 @@ if __name__ == "__main__":
     # form_handler.add_form(CircleForm(Vec(600, 1600), 1200,
     #                   4,5, 1000))
     # form_handler.add_form(CircleForm(Vec(500, 300), 100, normal_material,0, 2, 1000))
-    start_forms.add_form(CircleForm(
-        Vec(700, 300), 100, normal_material, 4, 6, 1000))
-    start_forms.add_form(CircleForm(
-        Vec(900, 300), 100, normal_material, 4, 6, 1000))
+    #start_forms.add_form(CircleForm(
+    
+    #    Vec(700, 300), 100, normal_material, 4, 6, 1000))
+    #start_forms.add_form(CircleForm(
+    #    Vec(900, 300), 100, normal_material, 4, 6, 1000))
+
     # line
     # form_handler.add_form(LineForm(Vec(100, 620), Vec(450, 720), 50, material=normal_material))
     # a rotated line
@@ -90,7 +120,12 @@ if __name__ == "__main__":
     # flipper = FormContainer(flipper_line_rotated, name="flipper")
     start_forms.set_named_form("flipper", flipper_line_rotated)
 
-    coll_thread = CollThread(ball, start_forms)
+    # floating_ball = CircleForm(Vec(700,620), 100, normal_material, -3, 2)
+    # #moving_ball = TransformForm(floating_ball, Vec(-x,-x)*3)
+    # #start_forms.add_form(moving_ball)
+    # start_forms.add_form(floating_ball)
+
+    coll_thread = CollThread(balls, start_forms)
     # next_coll_t, next_ball, next_forms = queue.get()
     # bahn = ball.gen_flugbahn(-9.8, 6)
     start_time = time.time_ns()
@@ -108,19 +143,20 @@ if __name__ == "__main__":
     n_colls = 0
 
     def handle_keydown(key: int):
-        global speed, last_time, start_time, curr_forms, ball
+        global speed, last_time, start_time, curr_forms, balls
         curr_pressed.add(key)
         # if key is the letter "k", remove flipper
         if key == pygame.K_k:
             t = calc_time()
             curr_forms = curr_forms.clone()
             curr_forms.remove_named_form("flipper")
-            coll_thread.restart(ball, curr_forms, t)
+            coll_thread.restart(balls, curr_forms, t)
             curr_state = coll_thread.check_coll(t)
             if curr_state is not None:
-                ball, curr_forms, _ = curr_state
+                balls, curr_forms, _ = curr_state
+                #ball = balls[0]
         # if key is the letter "f", make game faster
-        print(f"speed: {speed}")
+        #print(f"speed: {speed}")
 
         if key == pygame.K_f:
             # global speed
@@ -144,9 +180,9 @@ if __name__ == "__main__":
         curr_pressed.remove(key)
 
     k = 0
-    curr_pressed.add(pygame.K_SPACE)
+    #curr_pressed.add(pygame.K_SPACE)
     while running:
-        print(f"speed: {speed}, n_colls: {n_colls}, queue size: {coll_thread.get_curr_queue().qsize()}")
+        #print(f"speed: {speed}, n_colls: {n_colls}, queue size: {coll_thread.get_curr_queue().qsize()}")
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 running = False
@@ -164,32 +200,32 @@ if __name__ == "__main__":
                 t = calc_time()
                 curr_state = coll_thread.check_coll(t)
                 if curr_state is not None:
-                    ball, curr_forms, _ = curr_state
+                    balls, curr_forms, _ = curr_state
                 # stop_process(coll_process, stop_event)
                 curr_forms = curr_forms.clone()
                 curr_forms.set_named_form("flipper", make_flipper(
                     flipper_line, Vec(100, 620), 1, 0, 10, False, t))
                 # flipper.set(make_flipper(flipper_line, Vec(100, 620), 1, 0, 1, False, t))
-                coll_thread.restart(ball, curr_forms, t)
+                coll_thread.restart(balls, curr_forms, t)
                 curr_state = coll_thread.check_coll(t)
                 if curr_state is not None:
-                    ball, curr_forms, _ = curr_state
+                    balls, curr_forms, _ = curr_state
                 flipper_moving_up = True
             elif pygame.K_SPACE not in curr_pressed and flipper_moving_up and move_ended:
                 print("b")
                 t = calc_time()
                 curr_state = coll_thread.check_coll(t)
                 if curr_state is not None:
-                    ball, curr_forms, _ = curr_state
+                    balls, curr_forms, _ = curr_state
                 # stop_process(coll_process, stop_event)
                 curr_forms = curr_forms.clone()
                 curr_forms.set_named_form("flipper", make_flipper(
                     flipper_line, Vec(100, 620), 1, 0, 10, True, t))
                 # flipper.set(make_flipper(flipper_line, Vec(100, 620), 1, 0, 1, True, t))
-                coll_thread.restart(ball, curr_forms, t)
+                coll_thread.restart(balls, curr_forms, t)
                 curr_state = coll_thread.check_coll(t)
                 if curr_state is not None:
-                    ball, curr_forms, _ = curr_state
+                    balls, curr_forms, _ = curr_state
 
                 flipper_moving_up = False
         if pygame.K_s in curr_pressed:
@@ -205,6 +241,7 @@ if __name__ == "__main__":
 
         # ball.update(dt)
         passed = calc_time()
+        #print(f"passed: {passed}")
         curr_forms.draw(screen, (0, 255, 0), passed)
         # ball.pos_0 = bahn.get_pos(passed)
         # looped = False
@@ -212,12 +249,16 @@ if __name__ == "__main__":
         lagging_behind = None
         if curr_state is not None:
             print("coll")
-            ball, curr_forms, lagging_behind = curr_state
+            balls, curr_forms, lagging_behind = curr_state
+            print(f"ball_start_pos: {balls[0].pos_0}, ball_start_t: {balls[0].start_t}, curr_t: {passed}")
             n_colls += 1
-        if lagging_behind is not None:
-            print(f"lagging behind: {lagging_behind - passed}")
-            ball.draw(lagging_behind, screen)
-        else:
+        # if lagging_behind is not None:
+        #     print(f"lagging behind: {lagging_behind - passed}")
+        #     ball.draw(lagging_behind, screen)
+        # else:
+        #     ball.draw(passed, screen)
+        for ball in balls:
+            ball.get_form().draw(screen, ball.color, passed)
             ball.draw(passed, screen)
         # flip() the display to put your work on screen
         pygame.display.flip()
