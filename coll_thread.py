@@ -90,11 +90,11 @@ def precalc_colls(in_queue: Queue[Tuple[List[Ball], FormHandler]], out_queues: L
             other_ball_i = ball_inner_forms.index(other)
             other_ball = balls[other_ball_i]
             other_ball = other_ball.with_start_t(first_coll_t).with_start_pos(
-                other_ball.get_pos(first_coll_t - 0.00001)).with_vel(dir*(-1))
+                other_ball.get_pos(first_coll_t)).with_vel(dir*(-1))
             balls[other_ball_i] = other_ball
         #print(f"new ball pos: {ball.get_pos(coll.time + ball.start_t)}")
         ball = ball.with_start_t(first_coll_t).with_start_pos(
-            ball.get_pos(first_coll_t - 0.00001)).with_vel(dir)
+            ball.get_pos(first_coll_t)).with_vel(dir)
         #print(f"ball_start_t: {ball.start_t}, first_coll_t: {first_coll_t}, other: {other}")
         balls[first_coll_ball] = ball
         if first_coll_t < 50 or True:

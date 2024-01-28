@@ -4,6 +4,7 @@ from typing import List, Optional, Tuple
 import pygame
 from angle import angle_distance, normalize_angle
 from ball import Ball
+from coll_direction import CollDirection
 from collision import RotatedCollision
 from interval import SimpleInterval
 from material import Material
@@ -89,13 +90,13 @@ class CircleForm(StaticForm):
             self.min_angle, self.max_angle), 0.0, abs_tol=0.001)
         if closed:
             outer_circle = CirclePath(
-                pos, radius + ball_radius, self, min_angle, max_angle, "outer_circle")
+                pos, radius + ball_radius, self, min_angle, max_angle, CollDirection.ALLOW_FROM_OUTSIDE, "outer_circle")
             self.paths.append(outer_circle)
         else:
             outer_circle = CirclePath(
-                pos, radius + ball_radius, self, min_angle, max_angle, "outer_circle")
+                pos, radius + ball_radius, self, min_angle, max_angle, CollDirection.ALLOW_FROM_OUTSIDE, "outer_circle")
             inner_circle = CirclePath(
-                pos, radius - ball_radius, self, min_angle, max_angle, "inner_circle")
+                pos, radius - ball_radius, self, min_angle, max_angle, CollDirection.ALLOW_FROM_INSIDE, "inner_circle")
             self.paths.append(outer_circle)
             self.paths.append(inner_circle)
 
@@ -105,14 +106,14 @@ class CircleForm(StaticForm):
                           math.sin(min_angle)*radius + pos.y)
             angle_a = min_angle - math.pi
             angle_b = min_angle
-            cap = CirclePath(cap_pos, ball_radius,self, angle_a, angle_b, "min_cap")
+            cap = CirclePath(cap_pos, ball_radius,self, angle_a, angle_b, CollDirection.ALLOW_FROM_OUTSIDE, "min_cap")
             self.paths.append(cap)
             # max cap:
             cap_pos = Vec(math.cos(max_angle)*radius + pos.x,
                           math.sin(max_angle)*radius + pos.y)
             angle_a = max_angle
             angle_b = max_angle + math.pi
-            cap = CirclePath(cap_pos, ball_radius, self, angle_a, angle_b, "max_cap")
+            cap = CirclePath(cap_pos, ball_radius, self, angle_a, angle_b, CollDirection.ALLOW_FROM_OUTSIDE, "max_cap")
             self.paths.append(cap)
 
         step_size = (self.max_angle - self.min_angle)/resolution
@@ -164,22 +165,22 @@ class LineForm(StaticForm):
         self.pos1 = pos1
         self.pos2 = pos2
         self.paths = []
-        this_path = LinePath(pos1, pos2, self)
+#        this_path = LinePath(pos1, pos2, self, Vec(0,0))
         self.name = name
         self.ball_radius = ball_radius
         self.material = material
         # create two paths, one for each side of the line, parrallel to the line
         # with a distance of ball_radius
-        normal = this_path.get_normal(pos1)*ball_radius
-        self.paths.append(LinePath(pos1+normal, pos2+normal, self))
-        self.paths.append(LinePath(pos1-normal, pos2-normal, self))
+        normal = (pos2-pos1).normalize().orhtogonal()*ball_radius
+        self.paths.append(LinePath(pos1+normal, pos2+normal, self, normal, CollDirection.ALLOW_FROM_OUTSIDE))
+        self.paths.append(LinePath(pos1-normal, pos2-normal, self, normal*(-1), CollDirection.ALLOW_FROM_OUTSIDE))
         # calculate angle of line
         angle = math.atan2(pos2.y-pos1.y, pos2.x-pos1.x)
         # append circles at the ends of the line
         self.paths.append(CirclePath(pos1, ball_radius, self,
-                          angle+math.pi/2, angle-math.pi/2))
+                          angle+math.pi/2, angle-math.pi/2, CollDirection.ALLOW_FROM_OUTSIDE))
         self.paths.append(CirclePath(pos2, ball_radius, self,
-                          angle-math.pi/2, angle+math.pi/2))
+                          angle-math.pi/2, angle+math.pi/2, CollDirection.ALLOW_FROM_OUTSIDE))
         super().__init__(self.paths)
 
     def draw(self, screen, color, time: float):

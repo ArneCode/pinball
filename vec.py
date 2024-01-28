@@ -49,6 +49,8 @@ class Vec(Generic[T]):
         # if the other is number:
         #if isinstance(other, numbers.Number):
         #    return Vec(self.x*other, self.y*other)
+        # if the other is Vec:
+        assert not isinstance(other, Vec)
         return Vec(other*self.x, other*self.y)
 
     def apply(self, v) -> Vec:

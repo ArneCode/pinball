@@ -16,7 +16,7 @@ from vec import Vec
 from coll_thread import CollThread
 
 normal_material = Material(0.8, 0.95, 20, 1)
-flipper_material = Material(1.1, 1.0, 30, 0.0)
+flipper_material = Material(1.1, 1.0, 20, 0.0)
 speed = 8.5
 
 
@@ -99,8 +99,7 @@ if __name__ == "__main__":
         1280, 720), 50, material=normal_material))
 
     # boden = LineForm(Vec(100, 600), Vec(1280, 400), 50)
-    # form_handler.add_form(CircleForm(Vec(600, 1600), 1200,
-    #                   4,5, 1000))
+    #start_forms.add_form(CircleForm(Vec(600, 1600), 1200,normal_material,4,5, 1000))
     # form_handler.add_form(CircleForm(Vec(500, 300), 100, normal_material,0, 2, 1000))
     #start_forms.add_form(CircleForm(
     
@@ -111,16 +110,17 @@ if __name__ == "__main__":
     # line
     # form_handler.add_form(LineForm(Vec(100, 620), Vec(450, 720), 50, material=normal_material))
     # a rotated line
-    flipper_line = LineForm(Vec(100, 620), Vec(
+    flipper_line = LineForm(Vec(100, 720), Vec(
         450, 720), 50, material=flipper_material)
     # print(f"flipper steep: {flipper_line.paths[1].eq_x}, {flipper_line.paths[1].eq_y}")
     flipper_line_rotated = make_flipper(
-        flipper_line, Vec(100, 620), 0, 0, 0.001, True)
+        flipper_line, Vec(100, 720), 0, 0, 0.001, True)
     flipper_line_rotated.is_end = True
     # flipper = FormContainer(flipper_line_rotated, name="flipper")
     start_forms.set_named_form("flipper", flipper_line_rotated)
 
-    # floating_ball = CircleForm(Vec(700,620), 100, normal_material, -3, 2)
+    floating_ball = CircleForm(Vec(700,420), 100, normal_material, -2, 1.7)
+    start_forms.add_form(floating_ball)
     # #moving_ball = TransformForm(floating_ball, Vec(-x,-x)*3)
     # #start_forms.add_form(moving_ball)
     # start_forms.add_form(floating_ball)
@@ -204,7 +204,7 @@ if __name__ == "__main__":
                 # stop_process(coll_process, stop_event)
                 curr_forms = curr_forms.clone()
                 curr_forms.set_named_form("flipper", make_flipper(
-                    flipper_line, Vec(100, 620), 1, 0, 10, False, t))
+                    flipper_line, Vec(100, 720), 1, 0, 10, False, t))
                 # flipper.set(make_flipper(flipper_line, Vec(100, 620), 1, 0, 1, False, t))
                 coll_thread.restart(balls, curr_forms, t)
                 curr_state = coll_thread.check_coll(t)
@@ -220,7 +220,7 @@ if __name__ == "__main__":
                 # stop_process(coll_process, stop_event)
                 curr_forms = curr_forms.clone()
                 curr_forms.set_named_form("flipper", make_flipper(
-                    flipper_line, Vec(100, 620), 1, 0, 10, True, t))
+                    flipper_line, Vec(100, 720), 1, 0, 10, True, t))
                 # flipper.set(make_flipper(flipper_line, Vec(100, 620), 1, 0, 1, True, t))
                 coll_thread.restart(balls, curr_forms, t)
                 curr_state = coll_thread.check_coll(t)

@@ -3,6 +3,7 @@ from typing import List, Tuple
 import pygame
 from ball import Ball
 from bounding_box import BoundingBox
+from coll_direction import CollDirection
 from collision import Collision
 from interval import Interval, SimpleInterval
 from material import Material
@@ -46,8 +47,9 @@ class CirclePath(Path):
     min_angle: float
     max_angle: float
 
+    collision_direction: CollDirection
 
-    def __init__(self, pos: Vec, radius, form, min_angle: float = 0, max_angle: float = 2*math.pi, name=""):
+    def __init__(self, pos: Vec, radius, form, min_angle: float = 0, max_angle: float = 2*math.pi, coll_direction: CollDirection = CollDirection.ALLOW_ALL, name=""):
         while max_angle <= min_angle:
             max_angle += 2*math.pi
         self.pos = pos
@@ -57,6 +59,7 @@ class CirclePath(Path):
         self.min_angle = min_angle
         self.max_angle = max_angle
         self.form = form
+        self.collision_direction = coll_direction
 
         #if x_range is None:
         #    x_range = SimpleInterval(pos.x-radius, pos.x+radius)
@@ -85,22 +88,35 @@ class CirclePath(Path):
         pygame.draw.lines(screen, color, False, self.points, width=1)
         if False:
             self.bound.draw(screen, color)
-    def check_vec_angle(self, pos: Vec) -> bool:
+    def check_coll_angle(self, pos: Vec) -> bool:
         angle = (pos-self.pos).get_angle()
         
         return angle_between(angle, self.min_angle, self.max_angle)
+    def check_coll_direction(self, coll_pos: Vec, in_vec: Vec) -> bool:
+        vec_from_center = coll_pos - self.pos
+        dot = vec_from_center.dot(in_vec)
+        if self.collision_direction == CollDirection.ALLOW_ALL:
+            return True
+        elif self.collision_direction == CollDirection.ALLOW_FROM_INSIDE:
+            return dot > 0
+        elif self.collision_direction == CollDirection.ALLOW_FROM_OUTSIDE:
+            return dot < 0
+    def check_coll(self, coll_t: float, bahn: Vec) -> bool:
+        coll_pos = bahn.apply(coll_t)
+        ball_vel = bahn.deriv().apply(coll_t)
+        return self.check_coll_angle(coll_pos) and self.check_coll_direction(coll_pos, ball_vel)
     def find_collision(self, ball: Ball) -> Collision | None:
         # TODO: restrict searched t by already found!
         #t_range: Interval | None = self.bound.times_inside(ball)
         check_eq: Polynom = ((ball.bahn.x-self.pos.x)**2 +
                     (ball.bahn.y-self.pos.y)**2 - (self.radius)**2)
-        coll = check_eq.find_roots(filter_fn=lambda t: self.check_vec_angle(ball.bahn.apply(t)))
+        coll = check_eq.find_roots(filter_fn=lambda t: self.check_coll(t, ball.bahn))
         if len(coll) > 0:
             return Collision(coll[0], ball.bahn, self)
         return None
     def get_rotated(self, angle: float, center: Vec):
         new_pos = self.pos.rotate(angle, center)
-        return CirclePath(new_pos, self.radius, self.form, self.min_angle+angle, self.max_angle+angle, self.name)
+        return CirclePath(new_pos, self.radius, self.form, self.min_angle+angle, self.max_angle+angle, self.collision_direction,self.name)
     def __str__(self):
         return f"CirclePath(name: {self.name})"
     def get_form(self):
@@ -120,13 +136,15 @@ class LinePath(Path):
     """
     pos1: Vec
     pos2: Vec
-    tangent: Vec
+    normal: Vec
     eq_x: Polynom
     eq_y: Polynom
     x_range: Interval
     y_range: Interval
 
-    def __init__(self, pos1: Vec, pos2: Vec, form):
+    collision_direction: CollDirection
+
+    def __init__(self, pos1: Vec, pos2: Vec, form, normal: Vec,collision_direction: CollDirection = CollDirection.ALLOW_ALL):
         """
         Constructor for LinePath
         Args:
@@ -136,6 +154,8 @@ class LinePath(Path):
         self.pos1 = pos1
         self.pos2 = pos2
         self.form = form
+        self.collision_direction = collision_direction
+        self.normal = normal
         self.tangent = (pos2-pos1).normalize()
         self.x_range = SimpleInterval(min(pos1.x, pos2.x), max(pos1.x, pos2.x))
         self.y_range = SimpleInterval(min(pos1.y, pos2.y), max(pos1.y, pos2.y))
@@ -164,7 +184,18 @@ class LinePath(Path):
         Draws the line on the screen, used for debugging
         """
         pygame.draw.line(screen, color, (self.pos1.x, self.pos1.y), (self.pos2.x, self.pos2.y), width=1)
-
+    def check_coll_direction(self, coll_pos: Vec, in_vec: Vec) -> bool:
+        dot = self.normal.dot(in_vec)
+        if self.collision_direction == CollDirection.ALLOW_ALL:
+            return True
+        elif self.collision_direction == CollDirection.ALLOW_FROM_INSIDE:
+            return dot > 0
+        elif self.collision_direction == CollDirection.ALLOW_FROM_OUTSIDE:
+            return dot < 0
+    def check_coll(self, coll_t: float, bahn: Vec) -> bool:
+        coll_pos = bahn.apply(coll_t)
+        ball_vel = bahn.deriv().apply(coll_t)
+        return self.check_coll_direction(coll_pos, ball_vel)
     def find_collision(self, ball: Ball, interval: Interval = SimpleInterval(0.0, 100)) -> Collision | None:
         """
         Returns the collision with the center of the ball or None if there is no collision
@@ -178,7 +209,7 @@ class LinePath(Path):
         """
 
         coll_eq: Polynom = self.eq_x.apply(ball.bahn.y) - self.eq_y.apply(ball.bahn.x)
-        colls = coll_eq.find_roots()
+        colls = coll_eq.find_roots(filter_fn=lambda t: self.check_coll(t, ball.bahn))
         
         min_t = float("inf")
         for coll in colls:
@@ -198,6 +229,6 @@ class LinePath(Path):
             angle (float): the angle to rotate
             center (Vec): the center of rotation
         """
-        return LinePath(self.pos1.rotate(angle, center), self.pos2.rotate(angle, center), self.form)
+        return LinePath(self.pos1.rotate(angle, center), self.pos2.rotate(angle, center), self.form, self.normal.rotate(angle, center), self.collision_direction)
     def get_form(self):
         return self.form
