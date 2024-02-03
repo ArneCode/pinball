@@ -1,7 +1,6 @@
 from abc import ABC, abstractmethod
-from material import Material
-from vec import Vec
-from importlib import import_module
+from objects.material import Material
+from math_utils.vec import Vec
 
 #from path import Path
 class Collision(ABC):

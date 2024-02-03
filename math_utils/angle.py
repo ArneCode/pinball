@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import math
 
-from vec import Vec
+from math_utils.vec import Vec
 
 
 # function that return the angle between 0 and 2pi

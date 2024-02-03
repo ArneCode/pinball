@@ -1,10 +1,10 @@
 from __future__ import annotations
 from typing import Dict, List, Optional
 import copy
-from ball import Ball
+from objects.ball import Ball
 
-from form import Form
-from path import Path
+from objects.form import Form
+from objects.path import Path
 
 
 class FormHandler:
@@ -28,6 +28,7 @@ class FormHandler:
             named_forms = {}
         self.forms = forms
         self.named_forms = named_forms
+
     def clone(self) -> FormHandler:
         """
         clones the formhandler
@@ -39,11 +40,12 @@ class FormHandler:
 
     def add_form(self, form: Form):
         """Adds a form to the formhandler
-        
+
         Args:
             form (Form): the form to add
         """
         self.forms.append(form)
+
     def set_named_form(self, name: str, form: Form):
         """Sets a named form
 
@@ -52,6 +54,7 @@ class FormHandler:
             form (Form): the form to set
         """
         self.named_forms[name] = form
+
     def get_named_form(self, name: str) -> Optional[Form]:
         """Returns a named form
 
@@ -64,6 +67,7 @@ class FormHandler:
         if name not in self.named_forms:
             return None
         return self.named_forms[name]
+
     def remove_named_form(self, name: str):
         print(f"removing named form {name}, forms: {self.named_forms}")
         del self.named_forms[name]
@@ -84,11 +88,11 @@ class FormHandler:
             if coll is None:
                 continue
             if first_coll is None or coll.get_coll_t() < first_coll.get_coll_t():
-                #print(f"resetting first_coll: to {coll.get_coll_t()}")
+                # print(f"resetting first_coll: to {coll.get_coll_t()}")
                 first_coll = coll
             else:
                 pass
-                #print(f"no reset, coll_t: {coll.get_coll_t()}, first_coll_t: {first_coll.get_coll_t()}")
+                # print(f"no reset, coll_t: {coll.get_coll_t()}, first_coll_t: {first_coll.get_coll_t()}")
         if first_coll is not None and False:
             print(f"first_coll: {first_coll.get_coll_t()}")
         return first_coll

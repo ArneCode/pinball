@@ -1,9 +1,6 @@
 from __future__ import annotations
-from typing import Callable, Dict, Optional, List, Tuple
-import numbers
-import math
-from typing_extensions import deprecated
-from interval import Interval, SimpleInterval
+from typing import Callable, Optional, List
+
 import numpy as np
 from numpy.polynomial import Polynomial as NpPoly
 

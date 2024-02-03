@@ -3,8 +3,8 @@ import math
 import numbers
 from typing import Generic, Self, Tuple, TypeVar
 
-from polynom import Polynom
-from taylor import cos_taylor, sin_taylor
+from math_utils.polynom import Polynom
+from math_utils.taylor import cos_taylor, sin_taylor
 
 T = TypeVar("T")
 

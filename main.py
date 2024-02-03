@@ -5,16 +5,23 @@ import random
 import time
 from typing import List, Set, Tuple
 import pygame
-from ball import Ball
-from coll_direction import CollDirection
-from form import CircleForm, Form, FormContainer, LineForm, NoneForm, PeriodicForm, PolygonForm, RotateForm, TempForm, TransformForm
-from formhandler import FormHandler
-from interval import SimpleInterval
-from material import Material
-from polynom import Polynom
-from vec import Vec
+from objects.ball import Ball
+from collision.coll_direction import CollDirection
+from objects.form import Form
+from objects.forms.circleform import CircleForm
+from objects.forms.lineform import LineForm
+from objects.forms.periodicform import PeriodicForm
+from objects.forms.polygonform import PolygonForm
+from objects.forms.rotateform import RotateForm
+from objects.forms.tempform import TempForm
+from objects.formhandler import FormHandler
+from math_utils.interval import SimpleInterval
+from objects.material import Material
+from math_utils.polynom import Polynom
+from math_utils.vec import Vec
+from ballang_interop import prepare_functions
 
-from coll_thread import CollThread
+from collision.coll_thread import CollThread
 
 normal_material = Material(0.8, 0.95, 20, 1)
 flipper_material = Material(1.1, 1.0, 40, 0.0)
@@ -22,7 +29,9 @@ speed = 8.0
 
 
 pol = Polynom([6, -5, -2, 1])
-#print(pol.smallest_root_bisect(SimpleInterval(-10, 10)))
+# print(pol.smallest_root_bisect(SimpleInterval(-10, 10)))
+
+
 def make_rotating(form: Form, rot_point: Vec, period: float):
     n_subforms = 5
     step_size = 2*math.pi/n_subforms
@@ -31,7 +40,8 @@ def make_rotating(form: Form, rot_point: Vec, period: float):
     for i in range(n_subforms):
         angle = 2*math.pi*i/n_subforms
         sub_form = form.rotate(angle, rot_point)
-        rotating_sub_form = RotateForm(sub_form, rot_point, 0.0, step_size/step_duration, 0)
+        rotating_sub_form = RotateForm(
+            sub_form, rot_point, 0.0, step_size/step_duration, 0)
         subforms.append((rotating_sub_form, step_duration))
     return PeriodicForm(subforms)
 
@@ -69,39 +79,40 @@ if __name__ == "__main__":
     ))
     # 50.0 + 17.28480702·x, 479.61721365 - 93.0223965·x + 4.905·x²
     t_ = Polynom([0, 1])
-    bahn = Vec((t_**0)*50.0 + (t_**1)*17.28480702, (t_**0)*479.61721365 + t_*(-93.0223965) + (t_**2)*4.905)
+    bahn = Vec((t_**0)*50.0 + (t_**1)*17.28480702, (t_**0) *
+               479.61721365 + t_*(-93.0223965) + (t_**2)*4.905)
     _ball_neu = _ball.with_bahn(bahn).with_start_t(4.692454956294632)
 
     balls.append(_ball)
-    #balls.append(_ball_neu)
+    # balls.append(_ball_neu)
     _ball2 = Ball(Vec(250, 550), 50, "red").with_acc(Vec(0, 0.1)).with_vel(Vec(
         2, 0.1
     ))
     _ball3 = Ball(Vec(700, 550), 50, "red").with_acc(Vec(0, 0.1)).with_vel(Vec(
         -2, 0.1
     ))
-    #balls.append(_ball3)
-    #balls.append(_ball2)
+    # balls.append(_ball3)
+    # balls.append(_ball2)
     _ball4 = Ball(Vec(700, 200), 50, "red").with_acc(Vec(0, 0.1)).with_vel(Vec(
         -2, 0.1
     ))
-    #balls.append(_ball4)
+    # balls.append(_ball4)
     ball_form = _ball2.get_form()
     coll = ball_form.find_collision(_ball)
     print(f"got coll: {coll}")
-    #exit()
-    #balls.append(_ball)
+    # exit()
+    # balls.append(_ball)
     start_forms = FormHandler()
-    #floating_ball = CircleForm(Vec(700,620), 100, normal_material, -3, 2)
-    #moving_ball = TransformForm(floating_ball, Vec(-x,-x)*3)
-    #start_forms.add_form(moving_ball)
-    #start_forms.add_form(floating_ball)
-    #coll = floating_ball.find_collision(_ball)
-    #print(f"got coll: {coll}")
-    #exit()
+    # floating_ball = CircleForm(Vec(700,620), 100, normal_material, -3, 2)
+    # moving_ball = TransformForm(floating_ball, Vec(-x,-x)*3)
+    # start_forms.add_form(moving_ball)
+    # start_forms.add_form(floating_ball)
+    # coll = floating_ball.find_collision(_ball)
+    # print(f"got coll: {coll}")
+    # exit()
 
-    #start_forms.add_form(_ball.get_form())
-    #balls.append(_ball)
+    # start_forms.add_form(_ball.get_form())
+    # balls.append(_ball)
     # x = Polynom([0, 1])
     # new_bahn = Vec((x**0)*1229.6231817424573 + (x**1)*(-376.81825756158787), (x**0)*55.43841365643251 + x*(-561.5152209065546) + (x**2)*45.4)
     # ball = ball.with_bahn(new_bahn).with_start_t(0.0)
@@ -116,12 +127,12 @@ if __name__ == "__main__":
         1280, 720), 50, material=normal_material))
 
     # boden = LineForm(Vec(100, 600), Vec(1280, 400), 50)
-    #start_forms.add_form(CircleForm(Vec(600, 1600), 1200,normal_material,4,5, 1000))
+    # start_forms.add_form(CircleForm(Vec(600, 1600), 1200,normal_material,4,5, 1000))
     # form_handler.add_form(CircleForm(Vec(500, 300), 100, normal_material,0, 2, 1000))
-    #start_forms.add_form(CircleForm(
-    
+    # start_forms.add_form(CircleForm(
+
     #    Vec(700, 300), 100, normal_material, 4, 6, 1000))
-    #start_forms.add_form(CircleForm(
+    # start_forms.add_form(CircleForm(
     #    Vec(900, 300), 100, normal_material, 4, 6, 1000))
 
     # line
@@ -136,18 +147,21 @@ if __name__ == "__main__":
     # flipper = FormContainer(flipper_line_rotated, name="flipper")
     start_forms.set_named_form("flipper", flipper_line_rotated)
     a = 5.5
-    floating_ball = CircleForm(Vec(700,420), 100, normal_material, (0,0,0),-2 + a, 1.7 + a)
-    polygon_pts: List[Vec[float]] = list(map(lambda v: v*1.1,[Vec(100, 100), Vec(200, 100), Vec(300, 150), Vec(200, 200), Vec(300, 400), Vec(100, 200)]))
-    polygon = PolygonForm(polygon_pts, normal_material, CollDirection.ALLOW_FROM_OUTSIDE)
+    floating_ball = CircleForm(
+        Vec(700, 420), 100, normal_material, (0, 0, 0), -2 + a, 1.7 + a)
+    polygon_pts: List[Vec[float]] = list(map(lambda v: v*1.1, [Vec(100, 100), Vec(
+        200, 100), Vec(300, 150), Vec(200, 200), Vec(300, 400), Vec(100, 200)]))
+    polygon = PolygonForm(polygon_pts, normal_material,
+                          CollDirection.ALLOW_FROM_OUTSIDE)
     coll = polygon.find_collision(_ball_neu)
     print(f"got coll: {coll}")
     rotating_polygon = make_rotating(polygon, Vec(250, 250), 100)
-    #rotating_rotating_polygon = make_rotating(rotating_polygon, Vec(300, 300), 1000)
-    #start_forms.add_form(polygon)
-    #start_forms.add_form(rotating_polygon)
+    # rotating_rotating_polygon = make_rotating(rotating_polygon, Vec(300, 300), 1000)
+    # start_forms.add_form(polygon)
+    # start_forms.add_form(rotating_polygon)
     rotated_floating_ball = make_rotating(floating_ball, Vec(700, 420), 100)
     start_forms.add_form(rotated_floating_ball)
-    
+
     # #moving_ball = TransformForm(floating_ball, Vec(-x,-x)*3)
     # #start_forms.add_form(moving_ball)
     # start_forms.add_form(floating_ball)
@@ -181,9 +195,9 @@ if __name__ == "__main__":
             curr_state = coll_thread.check_coll(t, None)
             if curr_state is not None:
                 balls, curr_forms, _, _ = curr_state
-                #ball = balls[0]
+                # ball = balls[0]
         # if key is the letter "f", make game faster
-        #print(f"speed: {speed}")
+        # print(f"speed: {speed}")
 
         if key == pygame.K_f:
             # global speed
@@ -207,9 +221,9 @@ if __name__ == "__main__":
         curr_pressed.remove(key)
 
     k = 0
-    #curr_pressed.add(pygame.K_SPACE)
+    # curr_pressed.add(pygame.K_SPACE)
     while running:
-        #print(f"speed: {speed}, n_colls: {n_colls}, queue size: {coll_thread.get_curr_queue().qsize()}")
+        # print(f"speed: {speed}, n_colls: {n_colls}, queue size: {coll_thread.get_curr_queue().qsize()}")
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 running = False
@@ -268,16 +282,20 @@ if __name__ == "__main__":
 
         # ball.update(dt)
         passed = calc_time()
-        print(f"passed: {passed}, queue size: {coll_thread.get_curr_queue().qsize()}")
+        print(
+            f"passed: {passed}, queue size: {coll_thread.get_curr_queue().qsize()}")
+        for ball in balls:
+            vel = ball.bahn.deriv().apply(passed)
+            print(f"vel: {vel}")
         curr_forms.draw(screen, (0, 255, 0), passed)
         # ball.pos_0 = bahn.get_pos(passed)
         # looped = False
         curr_state = coll_thread.check_coll(passed)
         lagging_behind = None
         if curr_state is not None:
-            #print("coll")
+            # print("coll")
             balls, curr_forms, lagging_behind, n_looped = curr_state
-            #print(f"ball_start_pos: {balls[0].pos_0}, ball_start_t: {balls[0].start_t}, curr_t: {passed}")
+            # print(f"ball_start_pos: {balls[0].pos_0}, ball_start_t: {balls[0].start_t}, curr_t: {passed}")
             n_colls += n_looped
         # if lagging_behind is not None:
         #     print(f"lagging behind: {lagging_behind - passed}")
