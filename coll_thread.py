@@ -90,6 +90,7 @@ def precalc_colls(in_queue: Queue[Tuple[List[Ball], FormHandler]], out_queues: L
             log = True
         else:
             log = False
+        log = False
         if log:
             print(f"found coll at t: {first_coll_t}")
         ball = balls[first_coll_ball]

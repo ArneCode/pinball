@@ -51,20 +51,23 @@ class Form(ABC):
     @abstractmethod
     def get_points(self, t: float) -> List[Vec[float]]:
         pass
-
-
-class StaticForm(Form):
-
     @abstractmethod
-    def rotate(self, angle: float, center: Vec[float]) -> StaticForm:
-        pass
-
-    @abstractmethod
-    def transform(self, transform: Vec[float]) -> StaticForm:
+    def rotate(self, angle: float, center: Vec[float]) -> Form:
         pass
 
 
-class CircleForm(StaticForm):
+# class StaticForm(Form):
+
+#     @abstractmethod
+#     def rotate(self, angle: float, center: Vec[float]) -> StaticForm:
+#         pass
+
+#     @abstractmethod
+#     def transform(self, transform: Vec[float]) -> StaticForm:
+#         pass
+
+
+class CircleForm(Form):
     pos: Vec
     radius: float
     min_angle: float
@@ -141,7 +144,7 @@ class CircleForm(StaticForm):
             # pygame.draw.circle(screen, color, kante, 50)
             kante.draw(screen, color)
 
-    def get_points(self):
+    def get_points(self, t):
         return map(lambda p: Vec(p[0], p[1]), self.points)
         # for kante in self.paths:
         # pygame.draw.circle(screen, color, kante, 50)
@@ -150,19 +153,20 @@ class CircleForm(StaticForm):
     def get_name(self):
         return self.name
 
-    def rotate(self, angle: float, center: Vec[float]) -> StaticForm:
+    def rotate(self, angle: float, center: Vec[float]) -> CircleForm:
+        angle = -angle
         new_pos = self.pos.rotate(angle, center)
         return CircleForm(new_pos, self.radius, self.material, self.color, self.min_angle+angle, self.max_angle+angle, name=self.name)
 
-    def transform(self, transform: Vec[float]) -> StaticForm:
-        new_pos = self.pos + transform
-        return CircleForm(new_pos, self.radius, self.material, self.color, self.min_angle, self.max_angle, name=self.name)
+    # def transform(self, transform: Vec[float]) -> StaticForm:
+    #     new_pos = self.pos + transform
+    #     return CircleForm(new_pos, self.radius, self.material, self.color, self.min_angle, self.max_angle, name=self.name)
 
     def get_material(self) -> Material:
         return self.material
 
 
-class LineForm(StaticForm):
+class LineForm(Form):
     pos1: Vec[float]
     pos2: Vec[float]
     ball_radius: float
@@ -200,21 +204,21 @@ class LineForm(StaticForm):
         for path in self.paths:
             path.draw(screen, color)
 
-    def get_points(self):
+    def get_points(self, t):
         return [self.pos1, self.pos2]
 
     def get_name(self):
         return self.name
 
-    def rotate(self, angle: float, center: Vec[float]) -> StaticForm:
+    def rotate(self, angle: float, center: Vec[float]) -> LineForm:
         new_pos1 = self.pos1.rotate(angle, center)
         new_pos2 = self.pos2.rotate(angle, center)
         return LineForm(new_pos1, new_pos2, self.ball_radius, self.material, self.name)
 
-    def transform(self, transform: Vec[float]) -> StaticForm:
-        new_pos1 = self.pos1 + transform
-        new_pos2 = self.pos2 + transform
-        return LineForm(new_pos1, new_pos2, self.ball_radius, self.material, self.name)
+    # def transform(self, transform: Vec[float]) -> StaticForm:
+    #     new_pos1 = self.pos1 + transform
+    #     new_pos2 = self.pos2 + transform
+    #     return LineForm(new_pos1, new_pos2, self.ball_radius, self.material, self.name)
 
     def get_material(self) -> Material:
         return self.material
@@ -225,14 +229,14 @@ class RotateForm(Form):
     Rotate a form around a point
     This is done by rotating the ball trajectory
     """
-    form: StaticForm
+    form: Form
     center: Vec[float]
     start_angle: float  # the point which the form is rotated around
     angle_speed: float
     start_time: float
     name: str
 
-    def __init__(self, form: StaticForm, center: Vec[float], start_angle: float, angle_speed: float, start_time: float, name="rotateform"):
+    def __init__(self, form: Form, center: Vec[float], start_angle: float, angle_speed: float, start_time: float, name="rotateform"):
         self.form = form
         self.center = center
         self.start_angle = start_angle
@@ -244,8 +248,9 @@ class RotateForm(Form):
         if time is None:
             return
         angle = self.start_angle + self.angle_speed*(time-self.start_time)
-        form_rotated = self.form.rotate(angle, self.center)
-        form_rotated.draw(screen, color, time)
+        pts = self.form.get_points(time)
+        pts_rotated = list(map(lambda p: p.rotate(angle, self.center).as_tuple(), pts))
+        pygame.draw.lines(screen, color, False, pts_rotated, width=3)
         return
 
     def find_collision(self, ball: Ball):
@@ -274,17 +279,20 @@ class RotateForm(Form):
     def get_points(self, t: float) -> List[Vec[float]]:
         angle = self.start_angle + self.angle_speed*(t-self.start_time)
         return list(map(lambda p: p.rotate(angle, self.center), self.form.get_points(t)))
-
+    def rotate(self, angle: float, center: Vec[float]) -> RotateForm:
+        new_center = self.center.rotate(angle, center)
+        new_form = self.form.rotate(angle, center)
+        return RotateForm(new_form, new_center, self.start_angle, self.angle_speed, self.start_time, self.name)
 
 class TransformForm(Form):
     """
     Transform a form by a function
     """
-    form: StaticForm
+    form: Form
     transform: Vec[Polynom]
     name: str
 
-    def __init__(self, form: StaticForm, transform: Vec[Polynom], name="transformform"):
+    def __init__(self, form: Form, transform: Vec[Polynom], name="transformform"):
         self.form = form
         self.transform = transform
         self.name = name
@@ -292,8 +300,10 @@ class TransformForm(Form):
     def draw(self, screen: pygame.Surface, color, time: Optional[float] = None):
         if time is None:
             return
-        form_transformed = self.form.transform(self.transform.apply(time))
-        form_transformed.draw(screen, color, time)
+        diff = self.transform.apply(time)
+        pts = self.form.get_points(time)
+        pts_transformed = list(map(lambda p: (p + diff).as_tuple(), pts))
+        pygame.draw.lines(screen, color, False, pts_transformed, width=3)
         return
 
     def find_collision(self, ball: Ball):
@@ -320,6 +330,10 @@ class TransformForm(Form):
     def get_points(self, t: float) -> List[Vec[float]]:
         transform = self.transform.apply(t)
         return list(map(lambda p: p + transform, self.form.get_points(t)))
+    def rotate(self, angle: float, center: Vec[float]) -> TransformForm:
+        new_form = self.form.rotate(angle, center)
+        new_transform = self.transform.apply(angle)
+        return TransformForm(new_form, new_transform, self.name)
 
 
 # A form that is a certain Form for a period of time and becomes another form afterwards
@@ -385,6 +399,11 @@ class TempForm(Form):
             return self.start_form.get_points(t)
         else:
             return self.end_form.get_points(t)
+    
+    def rotate(self, angle: float, center: Vec[float]) -> TempForm:
+        new_start_form = self.start_form.rotate(angle, center)
+        new_end_form = self.end_form.rotate(angle, center)
+        return TempForm(new_start_form, self.form_duration, new_end_form, self.name)
 
 
 class PeriodicForm(Form):
@@ -461,12 +480,12 @@ class PeriodicForm(Form):
         for interval in times_inside:
             t0 = interval.get_min()
             tmax = interval.get_max()
-            print(f"t0: {t0}, tmax: {tmax}, ball: {ball}")
+            #print(f"t0: {t0}, tmax: {tmax}, ball: {ball}")
             #while t < interval.end:
             t = t0
             while True:
                 move_form, mov_start, mov_end = self.get_move_info(t)
-                print(f"t: {t}, mov_start: {mov_start}, mov_end: {mov_end}")
+                #print(f"t: {t}, mov_start: {mov_start}, mov_end: {mov_end}")
                 if mov_start > tmax:
                     print("mov_start > tmax, breaking")
                     break
@@ -510,10 +529,9 @@ class PeriodicForm(Form):
                 #vel_at_move_start = ball.bahn.deriv().apply(mov_start)
 
 
-
-
     def draw(self, screen, color, time: float):
         form_nr = self.get_form_nr(time)
+        print(f"form_nr: {form_nr}")
         t = time % self.total_duration
         for i in range(form_nr):
             form, duration = self.forms[i]
@@ -532,6 +550,13 @@ class PeriodicForm(Form):
         form_nr = self.get_form_nr(t)
         form, duration = self.forms[form_nr]
         return form.get_points(t)
+    
+    def rotate(self, angle: float, center: Vec[float]) -> PeriodicForm:
+        new_forms = []
+        for form, duration in self.forms:
+            new_form = form.rotate(angle, center)
+            new_forms.append((new_form, duration))
+        return PeriodicForm(new_forms)
 
 
 class FormContainer(Form):
@@ -585,7 +610,7 @@ def get_all_coll_times(paths: List[Path], bahn: Vec[Polynom]) -> List[float]:
     return new_colls
 
 
-class PolygonForm(StaticForm):
+class PolygonForm(Form):
     points: List[Vec[float]]
     point_tuples: List[Tuple[float, float]]
     name: str
@@ -768,17 +793,17 @@ class PolygonForm(StaticForm):
     def get_name(self):
         return self.name
 
-    def rotate(self, angle: float, center: Vec[float]) -> StaticForm:
+    def rotate(self, angle: float, center: Vec[float]) -> PolygonForm:
         new_points = []
         for point in self.points:
             new_points.append(point.rotate(angle, center))
         return PolygonForm(new_points, self.material, self.self_coll_direction, self.line_coll_direction, self.name)
 
-    def transform(self, transform: Vec[float]) -> StaticForm:
-        new_points = []
-        for point in self.points:
-            new_points.append(point + transform)
-        return PolygonForm(new_points, self.material, self.self_coll_direction, self.line_coll_direction, self.name)
+    #def transform(self, transform: Vec[float]) -> StaticForm:
+    #     new_points = []
+    #     for point in self.points:
+    #         new_points.append(point + transform)
+    #     return PolygonForm(new_points, self.material, self.self_coll_direction, self.line_coll_direction, self.name)
 
     def get_material(self) -> Material:
         return self.material
@@ -787,3 +812,4 @@ class PolygonForm(StaticForm):
         for point in self.points:
             point_str += f"{point}, "
         return f"PolygonForm(points=[{point_str}], name={self.name})"
+    

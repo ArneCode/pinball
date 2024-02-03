@@ -7,7 +7,7 @@ from typing import List, Set, Tuple
 import pygame
 from ball import Ball
 from coll_direction import CollDirection
-from form import CircleForm, Form, FormContainer, LineForm, NoneForm, PeriodicForm, PolygonForm, RotateForm, StaticForm, TempForm, TransformForm
+from form import CircleForm, Form, FormContainer, LineForm, NoneForm, PeriodicForm, PolygonForm, RotateForm, TempForm, TransformForm
 from formhandler import FormHandler
 from interval import SimpleInterval
 from material import Material
@@ -18,12 +18,12 @@ from coll_thread import CollThread
 
 normal_material = Material(0.8, 0.95, 20, 1)
 flipper_material = Material(1.1, 1.0, 40, 0.0)
-speed = 10.0
+speed = 8.0
 
 
 pol = Polynom([6, -5, -2, 1])
 #print(pol.smallest_root_bisect(SimpleInterval(-10, 10)))
-def make_rotating(form: StaticForm, rot_point: Vec, period: float):
+def make_rotating(form: Form, rot_point: Vec, period: float):
     n_subforms = 5
     step_size = 2*math.pi/n_subforms
     step_duration = period/n_subforms
@@ -135,16 +135,19 @@ if __name__ == "__main__":
     flipper_line_rotated.is_end = True
     # flipper = FormContainer(flipper_line_rotated, name="flipper")
     start_forms.set_named_form("flipper", flipper_line_rotated)
-
-    floating_ball = CircleForm(Vec(700,420), 100, normal_material, (0,0,0),-2, 1.7)
+    a = 5.5
+    floating_ball = CircleForm(Vec(700,420), 100, normal_material, (0,0,0),-2 + a, 1.7 + a)
     polygon_pts: List[Vec[float]] = list(map(lambda v: v*1.1,[Vec(100, 100), Vec(200, 100), Vec(300, 150), Vec(200, 200), Vec(300, 400), Vec(100, 200)]))
     polygon = PolygonForm(polygon_pts, normal_material, CollDirection.ALLOW_FROM_OUTSIDE)
     coll = polygon.find_collision(_ball_neu)
     print(f"got coll: {coll}")
     rotating_polygon = make_rotating(polygon, Vec(250, 250), 100)
+    #rotating_rotating_polygon = make_rotating(rotating_polygon, Vec(300, 300), 1000)
     #start_forms.add_form(polygon)
-    start_forms.add_form(rotating_polygon)
-    start_forms.add_form(floating_ball)
+    #start_forms.add_form(rotating_polygon)
+    rotated_floating_ball = make_rotating(floating_ball, Vec(700, 420), 100)
+    start_forms.add_form(rotated_floating_ball)
+    
     # #moving_ball = TransformForm(floating_ball, Vec(-x,-x)*3)
     # #start_forms.add_form(moving_ball)
     # start_forms.add_form(floating_ball)

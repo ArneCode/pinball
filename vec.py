@@ -21,12 +21,13 @@ class Vec(Generic[T]):
         x = self.x + other.x
         y = self.y + other.y
         return Vec(x, y)
+
     def __sub__(self, other: Vec):
         x = self.x - other.x
         y = self.y - other.y
         return Vec(x, y)
 
-    #def __str__(self) -> str:
+    # def __str__(self) -> str:
     #    return f"Vec({self.x}, {self.y})"
 
     def get_angle(self) -> float:
@@ -34,10 +35,10 @@ class Vec(Generic[T]):
         returns the angle of the vector in radians, between 0 and 2pi
         """
         if isinstance(self.x, float) and isinstance(self.y, float):
-            angle =  math.atan2(self.y, self.x) # angle between -pi and pi
+            angle = math.atan2(self.y, self.x)  # angle between -pi and pi
             if angle < 0:
                 angle += 2*math.pi
-            return angle # angle between 0 and 2pi
+            return angle  # angle between 0 and 2pi
         else:
             raise ValueError("can only get angle of float")
 
@@ -47,7 +48,7 @@ class Vec(Generic[T]):
 
     def __mul__(self, other) -> Vec:
         # if the other is number:
-        #if isinstance(other, numbers.Number):
+        # if isinstance(other, numbers.Number):
         #    return Vec(self.x*other, self.y*other)
         # if the other is Vec:
         assert not isinstance(other, Vec)
@@ -73,6 +74,7 @@ class Vec(Generic[T]):
 
     def normalize(self) -> Vec:
         return self*(1/self.magnitude())
+
     def decompose(self, other: Vec) -> Tuple[Vec, Vec]:
         """
         decompose self into the part that is parallel to other and the part that is perpendicular to other
@@ -80,32 +82,42 @@ class Vec(Generic[T]):
         proj = self.project(other)
         perp = self - proj
         return (proj, perp)
+
     def project(self, other: Vec) -> Vec:
         """
         project self onto other
         """
         return other*(self.dot(other)/(other.magnitude()**2))
+
     def dot(self, other: Vec) -> float:
         return self.x*other.x + self.y*other.y
+
     def orhtogonal(self) -> Vec:
         assert isinstance(self.x, float) and isinstance(self.y, float)
         return Vec(-self.y, self.x)
+
     def rotate(self, angle: float, center: Vec) -> Vec:
         """
-        rotate self around center by angle
+        rotate self around center by angle "im Uhrzeigersinn"
         """
         this_offset = self-center
-        this_offset_rot = Vec(this_offset.x*math.cos(angle) + this_offset.y*math.sin(angle), -this_offset.x*math.sin(angle) + this_offset.y*math.cos(angle))
+        this_offset_rot = Vec(this_offset.x*math.cos(angle) + this_offset.y*math.sin(angle),
+                              -this_offset.x*math.sin(angle) + this_offset.y*math.cos(angle))
         return this_offset_rot + center
+
     def rotate_poly(self, angle: Polynom, center: Vec, taylor_approx: int) -> Vec:
         """
-        rotate self around center by angle
+        rotate self around center by angle "im Uhrzeigersinn"
         """
         sin_poly = sin_taylor(taylor_approx)
         cos_poly = cos_taylor(taylor_approx)
         this_offset = self-center
-        this_offset_rot = Vec(this_offset.x*cos_poly.apply(angle) + this_offset.y*sin_poly.apply(angle), 
+        this_offset_rot = Vec(this_offset.x*cos_poly.apply(angle) + this_offset.y*sin_poly.apply(angle),
                               -this_offset.x*sin_poly.apply(angle) + this_offset.y*cos_poly.apply(angle))
         return this_offset_rot + center
+
     def __str__(self) -> str:
         return f"Vec({self.x}, {self.y})"
+
+    def as_tuple(self) -> Tuple[T, T]:
+        return (self.x, self.y)
