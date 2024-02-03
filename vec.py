@@ -26,8 +26,8 @@ class Vec(Generic[T]):
         y = self.y - other.y
         return Vec(x, y)
 
-    def __str__(self) -> str:
-        return f"Vec({self.x}, {self.y})"
+    #def __str__(self) -> str:
+    #    return f"Vec({self.x}, {self.y})"
 
     def get_angle(self) -> float:
         """
@@ -107,3 +107,5 @@ class Vec(Generic[T]):
         this_offset_rot = Vec(this_offset.x*cos_poly.apply(angle) + this_offset.y*sin_poly.apply(angle), 
                               -this_offset.x*sin_poly.apply(angle) + this_offset.y*cos_poly.apply(angle))
         return this_offset_rot + center
+    def __str__(self) -> str:
+        return f"Vec({self.x}, {self.y})"

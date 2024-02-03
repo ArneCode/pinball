@@ -2,9 +2,10 @@ from __future__ import annotations
 import copy
 import math
 import time
-from typing import List, Tuple
+from typing import List, Optional, Tuple
 
 from ball import Ball
+from collision import TimedCollision
 from form import Form, TransformForm
 from formhandler import FormHandler
 import multiprocessing as mp
@@ -19,7 +20,7 @@ def empty_queue(queue: Queue):
     print(f"emptying queue took {end_time - start_time} seconds")
 # 
 # 
-def precalc_colls(in_queue: Queue[Tuple[List[Ball], FormHandler]], out_queues: List[Queue[Tuple[float, List[Ball], FormHandler]]], stop_event, read_lag_evt):
+def precalc_colls(in_queue: Queue[Tuple[List[Ball], FormHandler]], out_queues: List[Queue[Tuple[float, List[Ball], Optional[FormHandler]]]], stop_event, read_lag_evt):
     assert len(out_queues) > 2
     curr_queue_n = 0
     curr_out_queue = out_queues[curr_queue_n]
@@ -46,7 +47,7 @@ def precalc_colls(in_queue: Queue[Tuple[List[Ball], FormHandler]], out_queues: L
             remove_dup = False
             i = 0
             continue
-        if curr_out_queue.qsize() > 1000:
+        if curr_out_queue.qsize() > 100:
             if len(used_queues) > 0:
                 print("emptying prev queue")
                 empty_queue(out_queues[used_queues.pop(0)])
@@ -58,6 +59,7 @@ def precalc_colls(in_queue: Queue[Tuple[List[Ball], FormHandler]], out_queues: L
         first_coll_t = float("inf")
         first_coll_ball: int = -1
         ball_forms = []
+        forms_changed = False
         form_with_balls = forms.clone()
         for ball in balls:
             form = ball.get_form()
@@ -71,9 +73,11 @@ def precalc_colls(in_queue: Queue[Tuple[List[Ball], FormHandler]], out_queues: L
             ball = balls[i]
             form = ball_forms[i]
             coll = form_with_balls.find_collision(ball, ignore=[form])
+            #print("found coll")
             if coll is None:
                 continue
-            coll_time = coll.time + ball.start_t
+
+            coll_time = coll.get_coll_t() + ball.start_t
             if coll_time < first_coll_t:
                 first_coll = coll
                 first_coll_t = coll_time
@@ -82,6 +86,12 @@ def precalc_colls(in_queue: Queue[Tuple[List[Ball], FormHandler]], out_queues: L
             continue
             raise Exception("no collision found")
         coll = first_coll
+        if first_coll_t < 50:
+            log = True
+        else:
+            log = False
+        if log:
+            print(f"found coll at t: {first_coll_t}")
         ball = balls[first_coll_ball]
         other: Form = coll.get_obj_form()
         dir = coll.get_result_dir()
@@ -93,12 +103,20 @@ def precalc_colls(in_queue: Queue[Tuple[List[Ball], FormHandler]], out_queues: L
                 other_ball.get_pos(first_coll_t)).with_vel(dir*(-1))
             balls[other_ball_i] = other_ball
         #print(f"new ball pos: {ball.get_pos(coll.time + ball.start_t)}")
+        if log:
+            print(f"ball-to-form: {first_coll_t}")
         ball = ball.with_start_t(first_coll_t).with_start_pos(
             ball.get_pos(first_coll_t)).with_vel(dir)
         #print(f"ball_start_t: {ball.start_t}, first_coll_t: {first_coll_t}, other: {other}")
         balls[first_coll_ball] = ball
-        if first_coll_t < 50 or True:
+        #if first_coll_t < 50 or True:
+
+        if forms_changed:
+            if log:
+                print(f"forms changed: {first_coll_t}")
             curr_out_queue.put((first_coll_t, copy.copy(balls), forms))
+        else:
+            curr_out_queue.put((first_coll_t, copy.copy(balls), None))
         i += 1
         end_time = time.time()
         #lock.release()
@@ -108,7 +126,7 @@ def precalc_colls(in_queue: Queue[Tuple[List[Ball], FormHandler]], out_queues: L
     raise SystemExit
 
 class CollThread:
-    out_queues: List[mp.Queue[Tuple[float, List[Ball], FormHandler]]]
+    out_queues: List[mp.Queue[Tuple[float, List[Ball], Optional[FormHandler]]]]
     curr_queue_n: int
     in_queue: mp.Queue[Tuple[List[Ball], FormHandler]]
     #    stop_evt: mp.synchronize.Event
@@ -120,7 +138,7 @@ class CollThread:
 
     next_coll_t: float
     next_balls: List[Ball]
-    next_form: FormHandler
+    next_form: Optional[FormHandler]
 
     def __init__(self, balls: List[Ball], form_handler: FormHandler, num_queues: int = 100):
         self.out_queues = []
@@ -137,20 +155,26 @@ class CollThread:
         self.form_handler = form_handler
         self.proc.start()
         self.next_coll_t, self.next_balls, self.next_form = self.out_queues[self.curr_queue_n].get()
-    def get_curr_queue(self) -> mp.Queue[Tuple[float, List[Ball], FormHandler]]:
+    def get_curr_queue(self) -> mp.Queue[Tuple[float, List[Ball], Optional[FormHandler]]]:
         return self.out_queues[self.curr_queue_n]
     # checks weather the time is past the next collision and return the new ball and form if so
-    def check_coll(self, time: float) -> Tuple[List[Ball], FormHandler, float | None] | None:
+    def check_coll(self, time: float, break_after: Optional[int] = 20) -> Tuple[List[Ball], FormHandler, float | None, int] | None:
         looped = False
         n_looped = 0
         lagging_behind = None
-        if time >= self.next_coll_t:
+        #print(f"curr queue len: {self.get_curr_queue().qsize()}")
+        while time >= self.next_coll_t:
+            if break_after is not None and n_looped >= break_after:
+                print("breaking")
+                break
             n_looped += 1
             self.balls = self.next_balls
-            self.form_handler = self.next_form
+            if self.next_form is not None:
+                self.form_handler = self.next_form
             self.next_coll_t, self.next_balls, self.next_form = self.get_curr_queue().get()
-            return self.balls, self.form_handler, None
-        print(f"curr queue len: {self.get_curr_queue().qsize()}")
+            looped = True
+        if looped:
+            return self.balls, self.form_handler, None, n_looped
         # if looped and time - self.ball.start_t > 10:
         #     print("lagging behind")
         #     if not self.has_read_lag:

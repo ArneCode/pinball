@@ -1,10 +1,20 @@
+from abc import ABC, abstractmethod
 from material import Material
 from vec import Vec
 from importlib import import_module
 
 #from path import Path
-
-class Collision:
+class Collision(ABC):
+    @abstractmethod
+    def get_result_dir(self) -> Vec:
+        pass
+    @abstractmethod
+    def get_coll_t(self) -> float:
+        pass
+    @abstractmethod
+    def get_obj_form(self):
+        pass
+class SimpleCollision(Collision):
     time: float
     bahn: Vec
     #obj: Path  # replace with interface
@@ -33,11 +43,31 @@ class Collision:
         return vel_par*material.factor_par - vel_ort*material.factor_ort#(vel_par*0.95 - vel_ort*0.8)
     def __str__(self):
         return f"Collision(time: {self.time}, bahn: {self.bahn}, obj: {self.obj})"
+    def get_coll_t(self) -> float:
+        return self.time
 class RotatedCollision(Collision):
     angle: float
+    static_coll: Collision
     def __init__(self, collision: Collision, angle: float):
-        super().__init__(collision.time, collision.bahn, collision.obj)
+        self.static_coll = collision
         self.angle = angle
     def get_result_dir(self) -> Vec:
-        return super().get_result_dir().rotate(-self.angle, Vec(0,0))*1.5
-    
+        return self.static_coll.get_result_dir().rotate(-self.angle, Vec(0,0))
+    def get_coll_t(self) -> float:
+        return self.static_coll.get_coll_t()
+    def get_obj_form(self):
+        return self.static_coll.get_obj_form()
+
+class TimedCollision(Collision):
+    time: float
+    static_coll: Collision
+    def __init__(self, collision: Collision, time: float):
+        self.static_coll = collision
+        self.time = time
+    def get_result_dir(self) -> Vec:
+        return self.static_coll.get_result_dir()
+#        raise NotImplementedError("not implemented yet")
+    def get_coll_t(self) -> float:
+        return self.time
+    def get_obj_form(self):
+        return self.static_coll.get_obj_form()

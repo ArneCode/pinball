@@ -83,6 +83,12 @@ class FormHandler:
             coll = form.find_collision(ball)
             if coll is None:
                 continue
-            if first_coll is None or coll.time < first_coll.time:
+            if first_coll is None or coll.get_coll_t() < first_coll.get_coll_t():
+                #print(f"resetting first_coll: to {coll.get_coll_t()}")
                 first_coll = coll
+            else:
+                pass
+                #print(f"no reset, coll_t: {coll.get_coll_t()}, first_coll_t: {first_coll.get_coll_t()}")
+        if first_coll is not None and False:
+            print(f"first_coll: {first_coll.get_coll_t()}")
         return first_coll

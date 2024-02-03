@@ -70,10 +70,12 @@ class Ball:
     def get_form(self):
         from material import Material
         from form import CircleForm, TransformForm
-        circle = CircleForm(Vec(0, 0), self.radius, material=Material(0.8, 0.95, 20, 1))
+        circle = CircleForm(Vec(0, 0), self.radius, material=Material(0.8, 0.95, 20, 1), color=self.color)
         t = Polynom([0, 1])
         x = self.bahn.x.apply(t-self.start_t)
         y = self.bahn.y.apply(t-self.start_t)
         bahn = Vec(x, y)
         moving_circle = TransformForm(circle, bahn)
         return moving_circle
+    def __str__(self) -> str:
+        return f"Ball(pos_0={self.pos_0}, bahn={self.bahn}, radius={self.radius}, color={self.color}, start_t={self.start_t})"

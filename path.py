@@ -4,7 +4,7 @@ import pygame
 from ball import Ball
 from bounding_box import BoundingBox
 from coll_direction import CollDirection
-from collision import Collision
+from collision import Collision, SimpleCollision
 from interval import Interval, SimpleInterval
 from material import Material
 
@@ -12,7 +12,7 @@ from polynom import Polynom
 from vec import Vec
 from abc import ABC, abstractmethod
 
-from angle import angle_between
+from angle import check_angle_between
 
 class Path(ABC):
     @abstractmethod
@@ -22,6 +22,12 @@ class Path(ABC):
     def find_collision(self, ball: Ball) -> Collision | None:
         """
         Returns the collision with the ball or None if there is no collision
+        """
+        pass
+    @abstractmethod
+    def find_all_collision_times(self, bahn: Vec[Polynom]) -> List[float]:
+        """
+        Returns all collisions with the ball or an empty list if there is no collision
         """
         pass
     @abstractmethod
@@ -91,7 +97,7 @@ class CirclePath(Path):
     def check_coll_angle(self, pos: Vec) -> bool:
         angle = (pos-self.pos).get_angle()
         
-        return angle_between(angle, self.min_angle, self.max_angle)
+        return check_angle_between(angle, self.min_angle, self.max_angle)
     def check_coll_direction(self, coll_pos: Vec, in_vec: Vec) -> bool:
         vec_from_center = coll_pos - self.pos
         dot = vec_from_center.dot(in_vec)
@@ -112,8 +118,13 @@ class CirclePath(Path):
                     (ball.bahn.y-self.pos.y)**2 - (self.radius)**2)
         coll = check_eq.find_roots(filter_fn=lambda t: self.check_coll(t, ball.bahn))
         if len(coll) > 0:
-            return Collision(coll[0], ball.bahn, self)
+            return SimpleCollision(coll[0], ball.bahn, self)
         return None
+    def find_all_collision_times(self, bahn: Vec[Polynom]) -> List[float]:
+        check_eq: Polynom = ((bahn.x-self.pos.x)**2 +
+                    (bahn.y-self.pos.y)**2 - (self.radius)**2)
+        colls = check_eq.find_roots(filter_fn=lambda t: self.check_coll(t, bahn))
+        return colls
     def get_rotated(self, angle: float, center: Vec):
         new_pos = self.pos.rotate(angle, center)
         return CirclePath(new_pos, self.radius, self.form, self.min_angle+angle, self.max_angle+angle, self.collision_direction,self.name)
@@ -192,17 +203,18 @@ class LinePath(Path):
             return dot > 0
         elif self.collision_direction == CollDirection.ALLOW_FROM_OUTSIDE:
             return dot < 0
+    def check_coll_pos(self, coll_pos: Vec) -> bool:
+        return self.x_range.check(coll_pos.x) and self.y_range.check(coll_pos.y)
     def check_coll(self, coll_t: float, bahn: Vec) -> bool:
         coll_pos = bahn.apply(coll_t)
         ball_vel = bahn.deriv().apply(coll_t)
-        return self.check_coll_direction(coll_pos, ball_vel)
-    def find_collision(self, ball: Ball, interval: Interval = SimpleInterval(0.0, 100)) -> Collision | None:
+        return self.check_coll_direction(coll_pos, ball_vel) and self.check_coll_pos(coll_pos)
+    def find_collision(self, ball: Ball) -> Collision | None:
         """
         Returns the collision with the center of the ball or None if there is no collision
 
         Args:
             ball (Ball): the ball to check for collision
-            interval (Interval, optional): the interval in which to search for collisions. Defaults to SimpleInterval(0.0, 100).
 
         Returns:
             Collision | None: the collision or None if there is no collision
@@ -210,17 +222,27 @@ class LinePath(Path):
 
         coll_eq: Polynom = self.eq_x.apply(ball.bahn.y) - self.eq_y.apply(ball.bahn.x)
         colls = coll_eq.find_roots(filter_fn=lambda t: self.check_coll(t, ball.bahn))
-        
-        min_t = float("inf")
-        for coll in colls:
-            if self.x_range.check(ball.bahn.x.apply(coll)) and self.y_range.check(ball.bahn.y.apply(coll)):
-                min_t = min(min_t, coll)
-            else:
-                pass
-                #print(f"not in range: {ball.bahn.apply(coll)}")
-        if min_t == float("inf"):
-            return None
-        return Collision(min_t, ball.bahn, self)
+
+        if len(colls) > 0:
+            return SimpleCollision(colls[0], ball.bahn, self)
+        return None
+    def find_all_collision_times(self, bahn: Vec[Polynom]) -> List[float]:
+        """
+        Returns all collisions with the center of the ball or an empty list if there is no collision
+
+        Args:
+            ball (Ball): the ball to check for collision
+
+        Returns:
+            List[Collision]: the collisions or an empty list if there is no collision
+        """
+
+        coll_eq: Polynom = self.eq_x.apply(bahn.y) - self.eq_y.apply(bahn.x)
+        colls = coll_eq.find_roots(filter_fn=lambda t: self.check_coll(t, bahn))
+
+        return colls
+
+
     def get_rotated(self, angle: float, center: Vec):
         """
         Returns a rotated version of this line

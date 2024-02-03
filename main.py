@@ -3,10 +3,11 @@ import copy
 import math
 import random
 import time
-from typing import Set, Tuple
+from typing import List, Set, Tuple
 import pygame
 from ball import Ball
-from form import CircleForm, FormContainer, LineForm, NoneForm, RotateForm, TempForm, TransformForm
+from coll_direction import CollDirection
+from form import CircleForm, Form, FormContainer, LineForm, NoneForm, PeriodicForm, PolygonForm, RotateForm, StaticForm, TempForm, TransformForm
 from formhandler import FormHandler
 from interval import SimpleInterval
 from material import Material
@@ -16,12 +17,23 @@ from vec import Vec
 from coll_thread import CollThread
 
 normal_material = Material(0.8, 0.95, 20, 1)
-flipper_material = Material(1.1, 1.0, 20, 0.0)
-speed = 8.5
+flipper_material = Material(1.1, 1.0, 40, 0.0)
+speed = 10.0
 
 
 pol = Polynom([6, -5, -2, 1])
 #print(pol.smallest_root_bisect(SimpleInterval(-10, 10)))
+def make_rotating(form: StaticForm, rot_point: Vec, period: float):
+    n_subforms = 5
+    step_size = 2*math.pi/n_subforms
+    step_duration = period/n_subforms
+    subforms: List[Tuple[Form, float]] = []
+    for i in range(n_subforms):
+        angle = 2*math.pi*i/n_subforms
+        sub_form = form.rotate(angle, rot_point)
+        rotating_sub_form = RotateForm(sub_form, rot_point, 0.0, step_size/step_duration, 0)
+        subforms.append((rotating_sub_form, step_duration))
+    return PeriodicForm(subforms)
 
 
 def make_flipper(line: LineForm, rot_point: Vec, up_angle: float, down_angle: float, turn_duration: float, curr_up: bool, curr_time: float = 0):
@@ -52,11 +64,16 @@ if __name__ == "__main__":
     dt = 0.001
     balls = []
     # create ball
-    _ball = Ball(Vec(500, 550), 50, "red").with_acc(Vec(0, 9.81)).with_vel(Vec(
-        -50, 0.5
+    _ball = Ball(Vec(200, 550), 50, "red").with_acc(Vec(0, 9.81)).with_vel(Vec(
+        -50, -300
     ))
+    # 50.0 + 17.28480702·x, 479.61721365 - 93.0223965·x + 4.905·x²
+    t_ = Polynom([0, 1])
+    bahn = Vec((t_**0)*50.0 + (t_**1)*17.28480702, (t_**0)*479.61721365 + t_*(-93.0223965) + (t_**2)*4.905)
+    _ball_neu = _ball.with_bahn(bahn).with_start_t(4.692454956294632)
 
     balls.append(_ball)
+    #balls.append(_ball_neu)
     _ball2 = Ball(Vec(250, 550), 50, "red").with_acc(Vec(0, 0.1)).with_vel(Vec(
         2, 0.1
     ))
@@ -119,7 +136,14 @@ if __name__ == "__main__":
     # flipper = FormContainer(flipper_line_rotated, name="flipper")
     start_forms.set_named_form("flipper", flipper_line_rotated)
 
-    floating_ball = CircleForm(Vec(700,420), 100, normal_material, -2, 1.7)
+    floating_ball = CircleForm(Vec(700,420), 100, normal_material, (0,0,0),-2, 1.7)
+    polygon_pts: List[Vec[float]] = list(map(lambda v: v*1.1,[Vec(100, 100), Vec(200, 100), Vec(300, 150), Vec(200, 200), Vec(300, 400), Vec(100, 200)]))
+    polygon = PolygonForm(polygon_pts, normal_material, CollDirection.ALLOW_FROM_OUTSIDE)
+    coll = polygon.find_collision(_ball_neu)
+    print(f"got coll: {coll}")
+    rotating_polygon = make_rotating(polygon, Vec(250, 250), 100)
+    #start_forms.add_form(polygon)
+    start_forms.add_form(rotating_polygon)
     start_forms.add_form(floating_ball)
     # #moving_ball = TransformForm(floating_ball, Vec(-x,-x)*3)
     # #start_forms.add_form(moving_ball)
@@ -151,9 +175,9 @@ if __name__ == "__main__":
             curr_forms = curr_forms.clone()
             curr_forms.remove_named_form("flipper")
             coll_thread.restart(balls, curr_forms, t)
-            curr_state = coll_thread.check_coll(t)
+            curr_state = coll_thread.check_coll(t, None)
             if curr_state is not None:
-                balls, curr_forms, _ = curr_state
+                balls, curr_forms, _, _ = curr_state
                 #ball = balls[0]
         # if key is the letter "f", make game faster
         #print(f"speed: {speed}")
@@ -198,34 +222,34 @@ if __name__ == "__main__":
             if pygame.K_SPACE in curr_pressed and not flipper_moving_up and move_ended:
                 print("a")
                 t = calc_time()
-                curr_state = coll_thread.check_coll(t)
+                curr_state = coll_thread.check_coll(t, None)
                 if curr_state is not None:
-                    balls, curr_forms, _ = curr_state
+                    balls, curr_forms, _, _ = curr_state
                 # stop_process(coll_process, stop_event)
                 curr_forms = curr_forms.clone()
                 curr_forms.set_named_form("flipper", make_flipper(
-                    flipper_line, Vec(100, 720), 1, 0, 10, False, t))
+                    flipper_line, Vec(100, 720), 1, 0, 3, False, t))
                 # flipper.set(make_flipper(flipper_line, Vec(100, 620), 1, 0, 1, False, t))
                 coll_thread.restart(balls, curr_forms, t)
-                curr_state = coll_thread.check_coll(t)
+                curr_state = coll_thread.check_coll(t, None)
                 if curr_state is not None:
-                    balls, curr_forms, _ = curr_state
+                    balls, curr_forms, _, _ = curr_state
                 flipper_moving_up = True
             elif pygame.K_SPACE not in curr_pressed and flipper_moving_up and move_ended:
                 print("b")
                 t = calc_time()
-                curr_state = coll_thread.check_coll(t)
+                curr_state = coll_thread.check_coll(t, None)
                 if curr_state is not None:
-                    balls, curr_forms, _ = curr_state
+                    balls, curr_forms, _, _ = curr_state
                 # stop_process(coll_process, stop_event)
                 curr_forms = curr_forms.clone()
                 curr_forms.set_named_form("flipper", make_flipper(
                     flipper_line, Vec(100, 720), 1, 0, 10, True, t))
                 # flipper.set(make_flipper(flipper_line, Vec(100, 620), 1, 0, 1, True, t))
                 coll_thread.restart(balls, curr_forms, t)
-                curr_state = coll_thread.check_coll(t)
+                curr_state = coll_thread.check_coll(t, None)
                 if curr_state is not None:
-                    balls, curr_forms, _ = curr_state
+                    balls, curr_forms, _, _ = curr_state
 
                 flipper_moving_up = False
         if pygame.K_s in curr_pressed:
@@ -241,17 +265,17 @@ if __name__ == "__main__":
 
         # ball.update(dt)
         passed = calc_time()
-        #print(f"passed: {passed}")
+        print(f"passed: {passed}, queue size: {coll_thread.get_curr_queue().qsize()}")
         curr_forms.draw(screen, (0, 255, 0), passed)
         # ball.pos_0 = bahn.get_pos(passed)
         # looped = False
         curr_state = coll_thread.check_coll(passed)
         lagging_behind = None
         if curr_state is not None:
-            print("coll")
-            balls, curr_forms, lagging_behind = curr_state
-            print(f"ball_start_pos: {balls[0].pos_0}, ball_start_t: {balls[0].start_t}, curr_t: {passed}")
-            n_colls += 1
+            #print("coll")
+            balls, curr_forms, lagging_behind, n_looped = curr_state
+            #print(f"ball_start_pos: {balls[0].pos_0}, ball_start_t: {balls[0].start_t}, curr_t: {passed}")
+            n_colls += n_looped
         # if lagging_behind is not None:
         #     print(f"lagging behind: {lagging_behind - passed}")
         #     ball.draw(lagging_behind, screen)
