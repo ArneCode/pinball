@@ -1,3 +1,6 @@
+"""
+This file contains the TransformForm class, which is a wrapper for a form that moves it around over time using a given transformation.
+"""
 from __future__ import annotations
 from typing import List, Optional
 import pygame
@@ -8,18 +11,42 @@ from objects.material import Material
 from math_utils.vec import Vec
 class TransformForm(Form):
     """
-    Transform a form by a function
+    A Wrapper for a form that moves it around over time using a given transformation
+
+    Attributes:
+        - form (Form): The form to transform
+        - transform (Vec[Polynom]): The transformation to apply to the form
+        - name (str): The name of the form
     """
     form: Form
     transform: Vec[Polynom]
     name: str
 
     def __init__(self, form: Form, transform: Vec[Polynom], name="transformform"):
+        """
+        Initialize the TransformForm
+
+        Args:
+            - form: form to transform
+            - transform: transformation to apply to the form
+            - name: name of the form
+        """
         self.form = form
         self.transform = transform
         self.name = name
 
     def draw(self, screen: pygame.Surface, color, time: Optional[float] = None):
+        """
+        Draw the transformed form on the screen
+
+        Args:
+            screen (pygame.Surface): The surface to draw on
+            color: color of the form
+            time (float): The current time
+
+        Returns:
+            None
+        """
         if time is None:
             return
         diff = self.transform.apply(time)
@@ -29,18 +56,21 @@ class TransformForm(Form):
         return
 
     def find_collision(self, ball: Ball):
-        # print(f"finding collision for rotateform, ball: {ball}")
-        # rotate the ball trajectory
+        """
+        Find the first collision of the ball with the form. This is done by moving the ball trajectory using the transformation and then finding the collision with the form.
+
+        Args:
+            - ball: ball to check for collision
+
+        Returns:
+            - Collision: first collision of the ball with the form
+        """
+        # move the ball trajectory using the transformation
         t = Polynom([0, 1])
         # rotate the ball trajectory
         bahn = ball.bahn - self.transform.apply(t+ball.start_t)
-        # print(f"bahn transformed: {bahn}, ball bahn: {ball.bahn}")
         # calculate the collision
         coll = self.form.find_collision(ball.with_bahn(bahn))
-        # print(f"found coll: {coll}")
-        if coll is None:
-            return None
-        # calculate the objects angle at the time of collision
         return coll
 
     def get_name(self):

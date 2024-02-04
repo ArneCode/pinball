@@ -1,3 +1,6 @@
+"""
+This module contains the Polynom class, which is a wrapper around numpy.polynomial.Polynomial.
+"""
 from __future__ import annotations
 from typing import Callable, Optional, List
 
@@ -13,6 +16,11 @@ class Polynom(NpPoly):
     def find_roots(self, min_x: float = 0.0, filter_fn: Optional[Callable[[float], bool]] = None, sort: bool = True) -> List[float]:
         """
         find roots using numpy
+
+        Args:
+            min_x (float, optional): minimum x value for the roots. Defaults to 0.0.
+            filter_fn (Optional[Callable[[float], bool]], optional): a function to filter the roots. Defaults to None.
+            sort (bool, optional): wether to sort the roots. Defaults to True.
         """
         roots = self.roots()
         roots = list(filter(np.isreal, roots))
@@ -24,6 +32,9 @@ class Polynom(NpPoly):
             roots = list(filter(filter_fn, roots))
         return roots
     def apply(self, x):
+        """
+        Returns the value of the polynom at x
+        """
         return super().__call__(x)
     
     def __call__(self, x):

@@ -1,3 +1,6 @@
+"""
+Interval class for representing ranges of numbers. Was used widely before. Now only the SimpleInterval class is used.
+"""
 from __future__ import annotations
 from abc import ABC, abstractmethod
 from typing import Iterator, List

@@ -1,3 +1,6 @@
+"""
+This file contains the LineForm class, which represents a straight line in the game.
+"""
 from __future__ import annotations
 import math
 from typing import List
@@ -11,6 +14,17 @@ from math_utils.vec import Vec
 
 
 class LineForm(Form):
+    """
+    A straight line in the game.
+
+    Attributes:
+        - pos1 (Vec[float]): The starting position of the line.
+        - pos2 (Vec[float]): The ending position of the line.
+        - ball_radius (float): The radius of the ball.
+        - material (Material): The material of the line.
+        - name (str): The name of the line.
+        - paths (List[Path]): The paths of the line.
+    """
     pos1: Vec[float]
     pos2: Vec[float]
     ball_radius: float
@@ -19,10 +33,19 @@ class LineForm(Form):
     paths: List[Path]
 
     def __init__(self, pos1: Vec[float], pos2: Vec[float], ball_radius: float, material: Material, name="line"):
+        """
+        Initialize the LineForm.
+
+        Args:
+            - pos1: The starting position of the line.
+            - pos2: The ending position of the line.
+            - ball_radius: The radius of the ball.
+            - material: The material of the line.
+            - name: The name of the line.
+        """
         self.pos1 = pos1
         self.pos2 = pos2
         self.paths = []
-#        this_path = LinePath(pos1, pos2, self, Vec(0,0))
         self.name = name
         self.ball_radius = ball_radius
         self.material = material
@@ -40,9 +63,21 @@ class LineForm(Form):
                           angle+math.pi/2, angle-math.pi/2, CollDirection.ALLOW_FROM_OUTSIDE))
         self.paths.append(CirclePath(pos2, ball_radius, self,
                           angle-math.pi/2, angle+math.pi/2, CollDirection.ALLOW_FROM_OUTSIDE))
+        # giving the paths to the Form class so that it can handle collisions
         super().__init__(self.paths)
 
     def draw(self, screen, color, time: float):
+        """
+        Draw the line on the screen.
+
+        Args:
+            - screen: The screen to draw on.
+            - color: The color of the line.
+            - time: The current time.
+
+        Returns:
+            None
+        """
         pygame.draw.line(screen, color, (self.pos1.x, self.pos1.y),
                          (self.pos2.x, self.pos2.y), width=3)
         for path in self.paths:
@@ -58,11 +93,6 @@ class LineForm(Form):
         new_pos1 = self.pos1.rotate(angle, center)
         new_pos2 = self.pos2.rotate(angle, center)
         return LineForm(new_pos1, new_pos2, self.ball_radius, self.material, self.name)
-
-    # def transform(self, transform: Vec[float]) -> StaticForm:
-    #     new_pos1 = self.pos1 + transform
-    #     new_pos2 = self.pos2 + transform
-    #     return LineForm(new_pos1, new_pos2, self.ball_radius, self.material, self.name)
 
     def get_material(self) -> Material:
         return self.material

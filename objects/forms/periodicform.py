@@ -1,3 +1,7 @@
+"""
+This module contains the class PeriodicForm, which is a form that swaps between different forms over time.
+For example it can be used to make perpetual rotation, even when using a taylor series, by using a different form with a different taylor series for each part (for example each quarter) of the rotation.
+"""
 from __future__ import annotations
 from typing import List, Tuple
 from collision.coll_direction import CollDirection
@@ -10,17 +14,46 @@ from objects.path import Path
 from objects.ball import Ball
 
 class PeriodicForm(Form):
+    """
+    A form that swaps between different forms over time.
+
+    Attributes:
+        - forms (List[Tuple[Form, float]]): A list of tuples containing a form and the duration for which it is active.
+        The time of the subforms is relative to when they start being active.
+        - total_duration (float): The total duration of the periodic form.
+        - outline (PolygonForm): The outline of the periodic form, a rectangle. 
+        This is used to find out in which time intervals a ball is inside the periodic form and could collide with it.
+
+    Methods:
+        - __init__(forms: List[Tuple[Form, float]]): Initializes a PeriodicForm object.
+        - get_form_nr(time: float) -> int: Returns the form number for a given time.
+        - get_move_info(time: float) -> Tuple[Form, float, float]: Returns the form, start time, and end time for a given time.
+        - find_collision(ball: Ball, ignore: List[Path] = []) -> TimedCollision: Finds the collision between the periodic form and a ball.
+        - draw(screen, color, time: float): Draws the periodic form on the screen based on the current time.
+        - get_name() -> str: Returns the name of the periodic form.
+        - get_material() -> Material: Returns the material of the periodic form.
+        - get_points(t: float) -> List[Vec[float]]: Returns the points of the periodic form at a given time.
+        - rotate(angle: float, center: Vec[float]) -> PeriodicForm: Rotates the periodic form by a specified angle around a center point.
+    """
     forms: List[Tuple[Form, float]]
     total_duration: float
     outline: PolygonForm
 
     def __init__(self, forms: List[Tuple[Form, float]]):
+        """
+        Initializes a PeriodicForm object.
+
+        Args:
+            - forms: A list of tuples containing a form and the duration for which it is active.
+            The time of the subforms is relative to when they start being active.
+        """
         self.forms = forms
         self.total_duration = 0
         for form, duration in forms:
             self.total_duration += duration
 
         # make an outline of the form
+        # find the min and max x and y values
         min_x = None
         max_x = None
         min_y = None
@@ -41,11 +74,12 @@ class PeriodicForm(Form):
                 if max_y is None or point.y > max_y:
                     max_y = point.y
         assert min_x is not None and min_y is not None and max_x is not None and max_y is not None
-        max_x *= 1.03
-        max_y *= 1.03
-        min_x /= 1.03
-        min_y /= 1.03
-        # make the outline
+        # make the outline a bit bigger, to account for errors
+        max_x *= 1.2
+        max_y *= 1.2
+        min_x /= 1.2
+        min_y /= 1.2
+        # make the outline as a rectangle polygon
         pts: List[Vec[float]] = [Vec(min_x, min_y), Vec(
             max_x, min_y), Vec(max_x, max_y), Vec(min_x, max_y)]
         self.outline = PolygonForm(pts, Material(
@@ -53,7 +87,15 @@ class PeriodicForm(Form):
             line_coll_direction=CollDirection.ALLOW_ALL, name="periodic_outline")
 
     def get_form_nr(self, time: float) -> int:
-        # print(f"getting form nr for time {time}, total_duration: {self.total_duration}")
+        """
+        Returns the form number for a given time. The form number is the index of the form that is active at the given time.
+
+        Args:
+            - time (float): The time.
+
+        Returns:
+            - int: The form number.
+        """
         time = time % self.total_duration
         for i in range(len(self.forms)):
             form, duration = self.forms[i]
@@ -64,7 +106,14 @@ class PeriodicForm(Form):
 
     def get_move_info(self, time: float) -> Tuple[Form, float, float]:
         """
-        Returns: (form, mov_start, mov_end)
+        Returns information about the form that is active at a given time. This includes the form, the start time, and the end time of the form.
+        TODO: find a better way to do this
+
+        Args:
+            - time (float): The time.
+
+        Returns:
+            - Tuple[Form, float, float]: A tuple containing the form, the start time, and the end time of the form.
         """
         time_rel = time % self.total_duration
         delta = time - time_rel
@@ -79,16 +128,23 @@ class PeriodicForm(Form):
         raise ValueError("time is too big")
 
     def find_collision(self, ball: Ball, ignore: List[Path] = []):
+        """
+        Finds the collision between the periodic form and a ball.
+
+        Args:
+            - ball (Ball): The ball to check for collision.
+            - ignore (List[Path], optional): A list of paths to ignore for collision detection.
+
+        Returns:
+            - TimedCollision: The collision information if a collision is found, otherwise None.
+        """
         times_inside = self.outline.find_times_inside(ball)
         for interval in times_inside:
             t0 = interval.get_min()
             tmax = interval.get_max()
-            # print(f"t0: {t0}, tmax: {tmax}, ball: {ball}")
-            # while t < interval.end:
             t = t0
             while True:
                 move_form, mov_start, mov_end = self.get_move_info(t)
-                # print(f"t: {t}, mov_start: {mov_start}, mov_end: {mov_end}")
                 if mov_start > tmax:
                     print("mov_start > tmax, breaking")
                     break
@@ -104,39 +160,36 @@ class PeriodicForm(Form):
                     vel_at_t0 = ball.bahn.deriv().apply(t0 - ball.start_t)
                     new_ball = ball.with_start_t(t0-mov_start).with_start_pos(
                         ball_at_t0).with_vel(vel_at_t0)
-                # print("new_ball: ", new_ball)
-                # print(f"pos_old_ball: {ball.get_pos(t + 100.0)}, pos_new_ball: {new_ball.get_pos(t + 100.0)}")
-                # print(f"old_ball: {ball}, new_ball: {new_ball}")
                 # find the collision
                 coll = move_form.find_collision(new_ball)
 
                 if coll is None:
+                    # TODO: find a better way to do this
                     t = mov_end + 0.2
                     continue
-                coll_form = coll.get_obj_form()
-                other_coll = coll_form.find_collision(new_ball)
-                # if other_coll is not None:
-                #    print(f"other_coll: {other_coll}")
-                # print(f"coll_obj: {coll.get_obj_form()}")
                 abs_coll_t = coll.get_coll_t() + new_ball.start_t + mov_start
                 if abs_coll_t > tmax:
                     break
                 rel_coll_t = abs_coll_t - ball.start_t
-                # print(f"found coll at {abs_coll_t} (inside PeriodicForm), coll_t: {coll.get_coll_t()}, ball_start_t: {ball.start_t}, mov_start: {mov_start}, rel_coll_t: {rel_coll_t}")
-                if abs_coll_t > 7.0 and abs_coll_t < 8.0 and False:
-                    raise ValueError("test")
                 return TimedCollision(coll, rel_coll_t)
 
-                # ball_at_move_start = ball.get_pos(mov_start)
-                # vel_at_move_start = ball.bahn.deriv().apply(mov_start)
-
     def draw(self, screen, color, time: float):
+        """
+        Draws the periodic form on the screen based on the current time.
+
+        Args:
+            - screen: The screen to draw on.
+            - color: The color to use for drawing.
+            - time (float): The current time.
+
+        Returns:
+            None
+        """
         form_nr = self.get_form_nr(time)
         print(f"form_nr: {form_nr}")
         t = time % self.total_duration
         for i in range(form_nr):
             form, duration = self.forms[i]
-            # form.draw(screen, color, duration)
             t -= duration
         form, duration = self.forms[form_nr]
         form.draw(screen, color, t)
@@ -145,14 +198,36 @@ class PeriodicForm(Form):
         return "periodicform"
 
     def get_material(self) -> Material:
+        """
+        Get the material of the form
+        """
         return self.forms[0][0].get_material()
 
     def get_points(self, t: float) -> List[Vec[float]]:
+        """
+        Get the points of the active form at a given time
+
+        Args:
+            - t (float): The time
+
+        Returns:
+            - List[Vec[float]]: The points of the form at the given time
+        """
         form_nr = self.get_form_nr(t)
         form, duration = self.forms[form_nr]
         return form.get_points(t)
 
     def rotate(self, angle: float, center: Vec[float]) -> PeriodicForm:
+        """
+        Rotates the periodic form by a specified angle around a center point.
+
+        Args:
+            - angle (float): The angle of rotation
+            - center (Vec[float]): The center point of rotation
+
+        Returns:
+            - PeriodicForm: The rotated periodic form
+        """
         new_forms = []
         for form, duration in self.forms:
             new_form = form.rotate(angle, center)

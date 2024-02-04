@@ -11,6 +11,21 @@ from objects.path import Path, CirclePath
 from math_utils.vec import Vec
 
 class CircleForm(Form):
+    """
+    A circle in the game.
+
+    Attributes:
+        - pos (Vec): The position of the circle.
+        - radius (float): The radius of the circle.
+        - min_angle (float): The minimum angle of the circle.
+        - max_angle (float): The maximum angle of the circle.
+        - name (str): The name of the circle.
+        - material (Material): The material of the circle.
+        - points (List[Tuple[float, float]]): The points of the circle. Used for drawing.
+        - edges (List[Tuple[Vec, bool]]): The edges of the circle.
+        - paths (List[Path]): The paths of the circle.
+        - color (Tuple[float, float, float]): The color of the circle.
+    """
     pos: Vec
     radius: float
     min_angle: float
@@ -24,7 +39,20 @@ class CircleForm(Form):
     color: Tuple[float, float, float]
 
     def __init__(self, pos: Vec, radius, material: Material, color: Tuple, min_angle: float = 0, max_angle: float = 2*math.pi, resolution=100, ball_radius=50, name="circle"):
+        """
+        Initialize the CircleForm.
 
+        Args:
+            - pos: The position of the circle.
+            - radius: The radius of the circle.
+            - min_angle: The minimum angle of the circle.
+            - max_angle: The maximum angle of the circle.
+            - name: The name of the circle.
+            - material: The material of the circle.
+            - color: The color of the circle.
+            - resolution: The number of points to use for drawing the circle.
+            - ball_radius: The radius of the ball.
+        """
         self.pos = pos
         self.radius = radius
         self.min_angle = min_angle
@@ -71,14 +99,13 @@ class CircleForm(Form):
             self.paths.append(cap)
 
         step_size = (self.max_angle - self.min_angle)/resolution
-        prev_x = None
         for i in range(resolution):
-            # print(f"i: {i}")
             a_r = i*step_size + self.min_angle
             x = math.cos(a_r)*self.radius + self.pos.x
             y = math.sin(a_r)*self.radius + self.pos.y
 
             self.points.append((x, y))
+        # giving the paths to the Form class so that it can handle collisions
         super().__init__(self.paths)
 
     def draw(self, screen, color, time: float):
@@ -100,10 +127,6 @@ class CircleForm(Form):
         angle = -angle
         new_pos = self.pos.rotate(angle, center)
         return CircleForm(new_pos, self.radius, self.material, self.color, self.min_angle+angle, self.max_angle+angle, name=self.name)
-
-    # def transform(self, transform: Vec[float]) -> StaticForm:
-    #     new_pos = self.pos + transform
-    #     return CircleForm(new_pos, self.radius, self.material, self.color, self.min_angle, self.max_angle, name=self.name)
 
     def get_material(self) -> Material:
         return self.material
