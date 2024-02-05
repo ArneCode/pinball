@@ -73,25 +73,21 @@ class PinballGame:
 
     def calc_time(self):
         return self.last_time + (time.time_ns() - self.start_time)/(10**(self.speed))
-
+    def handle_event(self, event):
+        if event.type == pygame.KEYDOWN:
+                self.handle_keydown(event.key)
+        elif event.type == pygame.KEYUP:
+            self.handle_keyup(event.key)
     def handle_keydown(self, key: int):
         self.curr_pressed.add(key)
         self.on_keydown(key, self)
 
     def handle_keyup(self, key):
         self.curr_pressed.remove(key)
-
     def update(self, screen):
+        #print(f"pinballgame update, args: self: {self}, screen: {screen}")
         # print(f"speed: {speed}, n_colls: {n_colls}, queue size: {coll_thread.get_curr_queue().qsize()}")
-        for event in pygame.event.get():
-            if event.type == pygame.QUIT:
-                running = False
-                self.coll_thread.stop()
-                return False
-            elif event.type == pygame.KEYDOWN:
-                self.handle_keydown(event.key)
-            elif event.type == pygame.KEYUP:
-                self.handle_keyup(event.key)
+        
         self.on_update(self)
 
         if pygame.K_s in self.curr_pressed:

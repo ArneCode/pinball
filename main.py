@@ -20,9 +20,10 @@ from math_utils.interval import SimpleInterval
 from objects.material import Material
 from math_utils.polynom import Polynom
 from math_utils.vec import Vec
-from ballang_interop import prepare_functions
+#from ballang_interop import prepare_functions
 
 from collision.coll_thread import CollThread
+from menus import Screen, Button
 
 normal_material = Material(0.8, 0.95, 20, 1)
 flipper_material = Material(1.1, 1.0, 40, 0.0)
@@ -107,6 +108,7 @@ if __name__ == "__main__":
 
     def on_update(game: PinballGame):
         global flipper_moving_up
+        print(f"game: {game}")
         flipper = game.curr_forms.get_named_form("flipper")
         assert isinstance(flipper, TempForm)
         move_ended = game.calc_time() > flipper.form_duration
@@ -163,11 +165,34 @@ if __name__ == "__main__":
             game.n_colls = 0
     game = PinballGame(start_forms=start_forms, balls=balls,
                        on_keydown=on_keydown, on_update=on_update)
+    game_button = Button(30, 30, 400, 100, 'Button One (onePress)')
+    menu_buttons = [game_button]
+    menu_screen = Screen("menu", None, menu_buttons, color = (0, 0, 255))
+    game_screen = Screen("game", lambda screen: game.update(screen))
     k = 0
     # curr_pressed.add(pygame.K_SPACE)
+    win = menu_screen.makeScreen()
     while running:
-        if not game.update(screen=screen):
-            break
+        menu_screen.ScreenUpdate(screen)
+        game_screen.ScreenUpdate(screen)
+        if menu_screen.checkState():
+            menu_screen.DrawButton(screen)
+        for event in pygame.event.get():
+            game.handle_event(event)
+            if menu_screen.checkState():
+            
+                for menu_button in menu_screen.button_list:
+                    if menu_button.process(event):
+
+                        win = game_screen.makeScreen()
+                        menu_screen.endScreen()
+                        print(f"The State of the menu is :{menu_screen.checkState()}")
+        if game_screen.checkState():
+            game_screen.runFunction(screen)    
+
+
+        # if not game.update(screen=screen):
+        #     break
         pygame.display.flip()
         clock.tick(60)
 
