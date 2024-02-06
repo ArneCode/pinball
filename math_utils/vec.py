@@ -149,3 +149,10 @@ class Vec(Generic[T]):
 
     def as_tuple(self) -> Tuple[T, T]:
         return (self.x, self.y)
+    def get_json(self) -> dict:
+        if isinstance(self.x, numbers.Number) and isinstance(self.y, numbers.Number):
+            return {"x": self.x, "y": self.y}
+        elif isinstance(self.x, Polynom) and isinstance(self.y, Polynom):
+            return {"x": self.x.get_json(), "y": self.y.get_json()}
+        else:
+            raise ValueError("can only get json of numbers or polynoms")

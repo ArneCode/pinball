@@ -6,11 +6,11 @@ import pygame
 from collision.coll_direction import CollDirection
 from math_utils.angle import angle_distance
 from objects.material import Material
-from objects.form import Form
+from objects.form import Form, StaticForm
 from objects.path import Path, CirclePath
 from math_utils.vec import Vec
 
-class CircleForm(Form):
+class CircleForm(StaticForm):
     """
     A circle in the game.
 
@@ -130,3 +130,17 @@ class CircleForm(Form):
 
     def get_material(self) -> Material:
         return self.material
+    
+    def get_json(self) -> dict:
+        return {
+            "type": "CircleForm",
+            "params": {
+                "pos": self.pos.get_json(),
+                "radius": self.radius,
+                "min_angle": self.min_angle,
+                "max_angle": self.max_angle,
+                "name": self.name,
+                "material": self.material.get_json(),
+                "color": self.color
+            }
+        }

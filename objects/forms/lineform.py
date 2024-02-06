@@ -7,13 +7,13 @@ from typing import List
 
 import pygame
 from collision.coll_direction import CollDirection
-from objects.form import Form
+from objects.form import Form, StaticForm
 from objects.material import Material
 from objects.path import Path, CirclePath, LinePath
 from math_utils.vec import Vec
 
 
-class LineForm(Form):
+class LineForm(StaticForm):
     """
     A straight line in the game.
 
@@ -96,3 +96,14 @@ class LineForm(Form):
 
     def get_material(self) -> Material:
         return self.material
+    
+    def get_json(self) -> dict:
+        return {
+            "type": "LineForm",
+            "params": {
+                "pos1": self.pos1.get_json(),
+                "pos2": self.pos2.get_json(),
+                "name": self.name,
+                "material": self.material.get_json(),
+            }
+        }

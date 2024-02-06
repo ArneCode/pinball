@@ -9,3 +9,6 @@ class CollDirection(Enum):
     ALLOW_ALL = auto()
     ALLOW_FROM_INSIDE = auto()
     ALLOW_FROM_OUTSIDE = auto()
+
+    def __str__(self):
+        return self.name

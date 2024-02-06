@@ -5,6 +5,7 @@ import random
 import time
 from typing import List, Set, Tuple
 import pygame
+from ballang import parse_file
 from game import PinballGame, make_flipper, make_rotating
 from objects.ball import Ball
 from collision.coll_direction import CollDirection
@@ -23,6 +24,7 @@ from math_utils.vec import Vec
 from ballang_interop import prepare_functions
 
 from collision.coll_thread import CollThread
+from read_world import World
 
 normal_material = Material(0.8, 0.95, 20, 1)
 flipper_material = Material(1.1, 1.0, 40, 0.0)
@@ -105,7 +107,83 @@ if __name__ == "__main__":
     flipper_moving_up = False
     n_colls = 0
 
+    flipper_moving_up = make_flipper(
+                flipper_line, Vec(100, 720), 1, 0, 3, False, 0.0)
+    flipper_moving_down = make_flipper(
+                flipper_line, Vec(100, 720), 1, 0, 10, True, 0.0)
+    
+    start_forms.set_hidden_form("flipper_moving_up", flipper_moving_up)
+    start_forms.set_hidden_form("flipper_moving_down", flipper_moving_down)
+    globals = {"flipper_moving_up": False}
+
+    on_update_code = """
+ def on_update(){
+     let flipper_moving_up = read_global("flipper_moving_up");
+     let t = calc_time();
+     let flipper_moving = is_moving("flipper",t);
+     print("a");
+     if is_key_pressed(32) && !flipper_moving_up && !flipper_moving {
+        print("option 1");
+         spawn_form_timed("flipper_moving_up", "flipper");
+         print("c");
+         restart_colls(t);
+         print("d");
+         set_global("flipper_moving_up", 1==1);
+         print("e");
+     }else if !is_key_pressed(32) && flipper_moving_up && !flipper_moving {
+        print("option 2");
+         spawn_form_timed("flipper_moving_down", "flipper");
+         print("c");
+         restart_colls(t);
+         print("d");
+         set_global("flipper_moving_up", 0==1);
+         print("e");
+    }
+ }
+"""
+# while True:
+#     for evt in pygame.event.get():
+#         if evt.type == pygame.KEYDOWN:
+#             print(f"key was pressed: {evt.key}")
+#     continue
     def on_update(game: PinballGame):
+        funcs = prepare_functions(game, globals)
+        ballang_funcs = parse_file(on_update_code, funcs)
+        on_update = ballang_funcs.get("on_update")
+        print(f"on_update: {on_update}")
+        #assert isinstance(on_update, Function)
+        on_update()
+        print("executed on_update")
+    def on_update_pseudo(game: PinballGame):
+        funcs = prepare_functions(game, globals)
+        # ballang_funcs = parse_file(on_update_code, funcs)
+        # on_update = ballang_funcs.get("on_update")
+        # print(f"on_update: {on_update}")
+        # #assert isinstance(on_update, Function)
+        # on_update()
+        # print("executed on_update")
+        flipper_moving_up = funcs["read_global"]("flipper_moving_up")
+        t = funcs["calc_time"]()
+        flipper_moving = funcs["is_moving"]("flipper", t)
+        #print("a")
+        if funcs["is_key_pressed"](32) and not flipper_moving_up and not flipper_moving:
+            print("option 1")
+            funcs["spawn_form_timed"]("flipper_moving_up", "flipper")
+            print("c")
+            funcs["restart_colls"](t)
+            print("d")
+            funcs["set_global"]("flipper_moving_up", 1==1)
+            print("e")
+        elif not funcs["is_key_pressed"](32) and flipper_moving_up and not flipper_moving:
+            print("option 2")
+            funcs["spawn_form_timed"]("flipper_moving_down", "flipper")
+            print("c")
+            funcs["restart_colls"](t)
+            print("d")
+            funcs["set_global"]("flipper_moving_up", 0==1)
+            print("e")
+    def on_update_python(game: PinballGame):
+
         global flipper_moving_up
         flipper = game.curr_forms.get_named_form("flipper")
         assert isinstance(flipper, TempForm)
@@ -121,10 +199,7 @@ if __name__ == "__main__":
             game.curr_forms.set_named_form("flipper", make_flipper(
                 flipper_line, Vec(100, 720), 1, 0, 3, False, t))
             # flipper.set(make_flipper(flipper_line, Vec(100, 620), 1, 0, 1, False, t))
-            game.coll_thread.restart(game.balls, game.curr_forms, t)
-            curr_state = game.coll_thread.check_coll(t, None)
-            if curr_state is not None:
-                game.balls, game.curr_forms, _, _ = curr_state
+            game.restart_colls(t)
             flipper_moving_up = True
         elif pygame.K_SPACE not in game.curr_pressed and flipper_moving_up and move_ended:
             print("b")
@@ -137,13 +212,9 @@ if __name__ == "__main__":
             game.curr_forms.set_named_form("flipper", make_flipper(
                 flipper_line, Vec(100, 720), 1, 0, 10, True, t))
             # flipper.set(make_flipper(flipper_line, Vec(100, 620), 1, 0, 1, True, t))
-            game.coll_thread.restart(game.balls, game.curr_forms, t)
-            curr_state = game.coll_thread.check_coll(t, None)
-            if curr_state is not None:
-                game.balls, game.curr_forms, _, _ = curr_state
+            game.restart_colls(t)
 
             flipper_moving_up = False
-
     def on_keydown(key: int, game: PinballGame):
         if key == pygame.K_f:
             # global speed
@@ -163,9 +234,16 @@ if __name__ == "__main__":
             game.n_colls = 0
     game = PinballGame(start_forms=start_forms, balls=balls,
                        on_keydown=on_keydown, on_update=on_update)
+    
+    # world = World("level/level1.json")
+    # forms = world.get_forms()
+
+    # game = PinballGame(start_forms=forms, balls=balls,
+    #                       on_keydown=None, on_update=None, speed=9.0)
     k = 0
     # curr_pressed.add(pygame.K_SPACE)
     while running:
+        #print(f"passed: {game.calc_time()}")
         if not game.update(screen=screen):
             break
         pygame.display.flip()

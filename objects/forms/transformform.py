@@ -87,3 +87,14 @@ class TransformForm(Form):
         new_form = self.form.rotate(angle, center)
         new_transform = self.transform.apply(angle)
         return TransformForm(new_form, new_transform, self.name)
+
+    def get_json(self) -> dict:
+        return {
+            "type": "TransformForm",
+            "params": {
+                "form": self.form.get_json(),
+                "transform": self.transform.get_json(),
+            }
+        }
+    def is_moving(self, t: float) -> bool:
+        return True

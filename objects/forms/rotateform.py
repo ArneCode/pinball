@@ -140,3 +140,17 @@ class RotateForm(Form):
         new_center = self.center.rotate(angle, center)
         new_form = self.form.rotate(angle, center)
         return RotateForm(new_form, new_center, self.start_angle, self.angle_speed, self.start_time, self.name)
+    def get_json(self) -> dict:
+        return {
+            "type": "RotateForm",
+            "params": {
+                "form": self.form.get_json(),
+                "center": self.center.get_json(),
+                "start_angle": self.start_angle,
+                "angle_speed": self.angle_speed,
+                "start_time": self.start_time,
+                "name": self.name
+            }
+        }
+    def is_moving(self, time: float) -> bool:
+        return True

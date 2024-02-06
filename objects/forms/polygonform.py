@@ -8,7 +8,7 @@ from math_utils.angle import calc_angle_between
 from math_utils.interval import SimpleInterval
 from objects.ball import Ball
 from objects.material import Material
-from objects.form import Form
+from objects.form import Form, StaticForm
 from objects.path import Path, CirclePath, LinePath
 from math_utils.vec import Vec
 from math_utils.polynom import Polynom
@@ -42,7 +42,7 @@ def get_all_coll_times(paths: List[Path], bahn: Vec[Polynom]) -> List[float]:
     return new_colls
 
 
-class PolygonForm(Form):
+class PolygonForm(StaticForm):
     """
     A polygon form. It can be used to represent a Polygon in the game or sometimes as an outline for a more complex form.
 
@@ -332,3 +332,15 @@ class PolygonForm(Form):
         for point in self.points:
             point_str += f"{point}, "
         return f"PolygonForm(points=[{point_str}], name={self.name})"
+
+    def get_json(self) -> dict:
+        return {
+            "type": "PolygonForm",
+            "params": {
+                "points": [point.get_json() for point in self.points],
+                "name": self.name,
+                "material": self.material.get_json(),
+                "self_coll_direction": self.self_coll_direction.name,
+                "line_coll_direction": self.line_coll_direction.name,
+            }
+        }

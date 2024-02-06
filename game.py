@@ -57,10 +57,12 @@ class PinballGame:
     on_update: Callable[[PinballGame], None]
     n_colls: int
 
-    def __init__(self, start_forms: FormHandler, balls: List[Ball], on_keydown, on_update, speed: float = 8.0):
-        print("a")
+    def __init__(self, start_forms: FormHandler, balls: List[Ball], on_keydown = None, on_update = None, speed: float = 8.0):
+        if on_keydown is None:
+            on_keydown = lambda key, game: None
+        if on_update is None:
+            on_update = lambda game: None
         self.coll_thread = CollThread(balls, start_forms)
-        print("b")
         self.last_time = 0
         self.start_time = time.time_ns()
         self.curr_forms = start_forms
@@ -80,6 +82,13 @@ class PinballGame:
 
     def handle_keyup(self, key):
         self.curr_pressed.remove(key)
+    def restart_colls(self, t: float):
+        print(f"restarting colls, self.balls: {self.balls}, self.curr_forms: {self.curr_forms}, t: {t}")
+        self.coll_thread.restart(self.balls, self.curr_forms, t)
+        print("thread restarted")
+        curr_state = self.coll_thread.check_coll(t, None)
+        if curr_state is not None:
+            self.balls, self.curr_forms, _, _ = curr_state
 
     def update(self, screen):
         # print(f"speed: {speed}, n_colls: {n_colls}, queue size: {coll_thread.get_curr_queue().qsize()}")
@@ -104,14 +113,9 @@ class PinballGame:
         screen.fill("black")
 
         passed = self.calc_time()
-        print(
-            f"passed: {passed}, queue size: {self.coll_thread.get_curr_queue().qsize()}")
         for ball in self.balls:
             vel = ball.bahn.deriv().apply(passed)
-            print(f"vel: {vel}")
         self.curr_forms.draw(screen, (0, 255, 0), passed)
-        print(
-            f"forms drawn, queue size: {self.coll_thread.get_curr_queue().qsize()}")
         curr_state = self.coll_thread.check_coll(passed)
         lagging_behind = None
         if curr_state is not None:
@@ -121,6 +125,5 @@ class PinballGame:
         for ball in self.balls:
             ball.get_form().draw(screen, ball.color, passed)
             ball.draw(passed, screen)
-            print("ball drawn")
         return True
         # flip() the display to put your work on screen

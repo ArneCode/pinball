@@ -17,10 +17,7 @@ class Form(ABC):
     Interface for all forms. A Form is an Object inside the game. 
     Collision detection is done using the objects paths, which are extended out from the form.
     """
-    paths: List[Path]
 
-    def __init__(self, paths: List[Path]):
-        self.paths = paths
 
     @abstractmethod
     def draw(self, screen, color, time: float):
@@ -38,29 +35,9 @@ class Form(ABC):
     def get_name(self) -> str:
         pass
 
+    @abstractmethod
     def find_collision(self, ball: Ball):
-        """
-        Find the first collision of the ball with the form.
-
-        Args:
-            - ball: ball to check for collision
-
-        Returns:
-            - Collision: first collision of the ball with the form
-        """
-        # print("finding collision for abstract form")
-        first_coll = None
-        for path in self.paths:
-            # print(f"checking path: {path}")
-            coll = path.find_collision(ball)
-            if coll is None:
-                # print("no collision")
-                continue
-
-            if first_coll is None or coll.get_coll_t() < first_coll.get_coll_t():
-                first_coll = coll
-                # print(f"new first collision: {first_coll}")
-        return first_coll
+        pass
 
     @abstractmethod
     def get_material(self) -> Material:
@@ -98,3 +75,40 @@ class Form(ABC):
             - Form: rotated form
         """
         pass
+    @abstractmethod
+    def get_json(self) -> dict:
+        pass
+    @abstractmethod
+    def is_moving(self, time: float) -> bool:
+        pass
+
+class StaticForm(Form):
+    paths: List[Path]
+
+    def __init__(self, paths: List[Path]):
+        self.paths = paths
+    def find_collision(self, ball: Ball):
+        """
+        Find the first collision of the ball with the form.
+
+        Args:
+            - ball: ball to check for collision
+
+        Returns:
+            - Collision: first collision of the ball with the form
+        """
+        # print("finding collision for abstract form")
+        first_coll = None
+        for path in self.paths:
+            # print(f"checking path: {path}")
+            coll = path.find_collision(ball)
+            if coll is None:
+                # print("no collision")
+                continue
+
+            if first_coll is None or coll.get_coll_t() < first_coll.get_coll_t():
+                first_coll = coll
+                # print(f"new first collision: {first_coll}")
+        return first_coll
+    def is_moving(self, time: float) -> bool:
+        return False

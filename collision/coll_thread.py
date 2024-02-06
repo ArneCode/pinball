@@ -39,17 +39,19 @@ def precalc_colls(in_queue: Queue[Tuple[List[Ball], FormHandler]], out_queues: L
         # print("c thread: lock aquired")
         start_time = time.time()
         if not in_queue.empty():
+            print("in_queue not empty")
             used_queues.append(curr_queue_n)
             curr_queue_n = (curr_queue_n + 1) % len(out_queues)
             curr_out_queue = out_queues[curr_queue_n]
 
             balls, forms = in_queue.get()
+            print(f"aquired new balls and forms, named_forms: {forms.named_forms}")
             prev_obj = None
             prev_coll_t = 0
             remove_dup = False
             i = 0
             continue
-        if curr_out_queue.qsize() > 100:
+        if curr_out_queue.qsize() > 1000:
             if len(used_queues) > 0:
                 print("emptying prev queue")
                 empty_queue(out_queues[used_queues.pop(0)])
@@ -61,7 +63,7 @@ def precalc_colls(in_queue: Queue[Tuple[List[Ball], FormHandler]], out_queues: L
         first_coll_t = float("inf")
         first_coll_ball: int = -1
         ball_forms = []
-        forms_changed = False
+        forms_changed = True
         form_with_balls = forms.clone()
         for ball in balls:
             form = ball.get_form()
@@ -113,7 +115,7 @@ def precalc_colls(in_queue: Queue[Tuple[List[Ball], FormHandler]], out_queues: L
         # print(f"ball_start_t: {ball.start_t}, first_coll_t: {first_coll_t}, other: {other}")
         balls[first_coll_ball] = ball
         # if first_coll_t < 50 or True:
-
+        print(f"first_coll_t: {first_coll_t}")
         if forms_changed:
             if log:
                 print(f"forms changed: {first_coll_t}")
@@ -166,7 +168,7 @@ class CollThread:
         return self.out_queues[self.curr_queue_n]
     # checks weather the time is past the next collision and return the new ball and form if so
 
-    def check_coll(self, time: float, break_after: Optional[int] = 20) -> Tuple[List[Ball], FormHandler, float | None, int] | None:
+    def check_coll(self, time: float, break_after: Optional[int] = 5) -> Tuple[List[Ball], FormHandler, float | None, int] | None:
         looped = False
         n_looped = 0
         lagging_behind = None
@@ -202,9 +204,13 @@ class CollThread:
         for i in range(len(self.balls)):
             self.balls[i] = self.balls[i].from_time(time)
         # self.ball = self.ball.from_time(time)
+        print("putting in queue")
         self.in_queue.put((self.balls, form_handler))
+        print("put in queue")
         self.curr_queue_n = (self.curr_queue_n + 1) % len(self.out_queues)
+        print("getting next")
         self.next_coll_t, self.next_balls, self.next_form = self.get_curr_queue().get()
+        print("got next")
         # print(f"restart, next_coll_t: {self.next_coll_t + self.ball.start_t}, curr_t: {time}, diff: {self.next_coll_t + self.ball.start_t - time}")
 
     def stop(self):
