@@ -42,7 +42,7 @@ class Path(ABC):
         pass
 
     @abstractmethod
-    def get_form(self):
+    def get_form(self) -> "StaticForm":
         pass
     # @abstractmethod
 

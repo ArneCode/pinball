@@ -1,7 +1,7 @@
 """This module contains the PolygonForm class."""
 from __future__ import annotations
 import math
-from typing import List
+from typing import Callable, Dict, List
 import pygame
 from collision.coll_direction import CollDirection
 from math_utils.angle import calc_angle_between
@@ -67,7 +67,8 @@ class PolygonForm(StaticForm):
 
     def __init__(self, points: List[Vec[float]],
                  material: Material, self_coll_direction: CollDirection = CollDirection.ALLOW_FROM_OUTSIDE,
-                 line_coll_direction: CollDirection = CollDirection.ALLOW_FROM_OUTSIDE, name="polygon", edge_normals: Optional[List[Vec[float]]] = None):
+                 line_coll_direction: CollDirection = CollDirection.ALLOW_FROM_OUTSIDE, name="polygon", edge_normals: Optional[List[Vec[float]]] = None,
+                  on_collision: Optional[str] = None):
         """
         Create a new polygon form
         
@@ -101,7 +102,7 @@ class PolygonForm(StaticForm):
 
         for point in points:
             self.point_tuples.append((point.x, point.y))
-        super().__init__(self.paths)
+        super().__init__(self.paths, on_collision=on_collision)
 
     def find_edge_normals(self):
         """

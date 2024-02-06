@@ -1,6 +1,6 @@
 from __future__ import annotations
 import math
-from typing import List, Tuple
+from typing import Callable, Dict, List, Optional, Tuple
 
 import pygame
 from collision.coll_direction import CollDirection
@@ -38,7 +38,10 @@ class CircleForm(StaticForm):
     paths: List[Path]
     color: Tuple[float, float, float]
 
-    def __init__(self, pos: Vec, radius, material: Material, color: Tuple, min_angle: float = 0, max_angle: float = 2*math.pi, resolution=100, ball_radius=50, name="circle"):
+    def __init__(self, pos: Vec, radius, material: Material, 
+                 color: Tuple, min_angle: float = 0, max_angle: float = 2*math.pi, 
+                 resolution=100, ball_radius=50, name="circle", 
+                 on_collision: Optional[str] = None):
         """
         Initialize the CircleForm.
 
@@ -106,7 +109,7 @@ class CircleForm(StaticForm):
 
             self.points.append((x, y))
         # giving the paths to the Form class so that it can handle collisions
-        super().__init__(self.paths)
+        super().__init__(self.paths, on_collision=on_collision)
 
     def draw(self, screen, color, time: float):
         pygame.draw.lines(screen, color, False, self.points, width=3)

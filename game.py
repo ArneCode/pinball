@@ -2,10 +2,10 @@ from __future__ import annotations
 
 import math
 import time
-from typing import Callable, List, Set, Tuple
+from typing import Any, Callable, Dict, List, Set, Tuple
 import pygame
 
-from collision.coll_thread import CollThread
+from collision.coll_thread import ChangeInfo, CollThread
 from math_utils.vec import Vec
 from objects.ball import Ball
 from objects.form import Form
@@ -44,29 +44,41 @@ def make_flipper(line: LineForm, rot_point: Vec, up_angle: float, down_angle: fl
             down_line, rot_point, -0.0, speed, curr_time)
         return TempForm(rotating_line, turn_duration + curr_time, up_line)
 
+class GameState:
+    forms: FormHandler
+    balls: List[Ball]
+    ballang_vars: Dict[str, Any]
 
+    def __init__(self, forms: FormHandler, balls: List[Ball], ballang_vars: Dict[str, Any]):
+        self.forms = forms
+        self.balls = balls
+        self.ballang_vars = ballang_vars
+    
+    def draw(self, screen, time):
+        self.forms.draw(screen, (0, 255, 0), time)
+        for ball in self.balls:
+            ball.get_form().draw(screen, ball.color, time)
+            ball.draw(time, screen)
 class PinballGame:
+    curr_state: GameState
     coll_thread: CollThread
     curr_pressed: Set[int]
     speed: float
     last_time: float
     start_time: int
-    curr_forms: FormHandler
-    balls: List[Ball]
     on_keydown: Callable[[int, PinballGame], None]
     on_update: Callable[[PinballGame], None]
     n_colls: int
 
-    def __init__(self, start_forms: FormHandler, balls: List[Ball], on_keydown = None, on_update = None, speed: float = 8.0):
+    def __init__(self, start_state: GameState, on_keydown = None, on_update = None, speed: float = 8.0, coll_fns: Dict[str, Callable[[GameState, float, int, ChangeInfo], None]] = {}):
         if on_keydown is None:
             on_keydown = lambda key, game: None
         if on_update is None:
             on_update = lambda game: None
-        self.coll_thread = CollThread(balls, start_forms)
         self.last_time = 0
         self.start_time = time.time_ns()
-        self.curr_forms = start_forms
-        self.balls = balls
+        self.curr_state = start_state
+        self.coll_thread = CollThread(self.curr_state, form_functions=coll_fns)
         self.on_keydown = on_keydown
         self.on_update = on_update
         self.n_colls = 0
@@ -83,12 +95,13 @@ class PinballGame:
     def handle_keyup(self, key):
         self.curr_pressed.remove(key)
     def restart_colls(self, t: float):
-        print(f"restarting colls, self.balls: {self.balls}, self.curr_forms: {self.curr_forms}, t: {t}")
-        self.coll_thread.restart(self.balls, self.curr_forms, t)
+        #print(f"restarting colls, self.balls: {self.balls}, self.curr_forms: {self.curr_forms}, t: {t}")
+        self.coll_thread.restart(self.curr_state, t)
         print("thread restarted")
-        curr_state = self.coll_thread.check_coll(t, None)
-        if curr_state is not None:
-            self.balls, self.curr_forms, _, _ = curr_state
+        new_state = self.coll_thread.check_coll(t, None)
+        if new_state is not None:
+            self.curr_state, n_looped = new_state
+            self.n_colls += n_looped
 
     def update(self, screen):
         # print(f"speed: {speed}, n_colls: {n_colls}, queue size: {coll_thread.get_curr_queue().qsize()}")
@@ -102,6 +115,10 @@ class PinballGame:
             elif event.type == pygame.KEYUP:
                 self.handle_keyup(event.key)
         self.on_update(self)
+        e = False
+        if self.curr_state.ballang_vars["flipper_moving_up"]:
+            #raise Exception("flipper moving up")
+            e = True
 
         if pygame.K_s in self.curr_pressed:
             self.speed += 0.01
@@ -111,19 +128,12 @@ class PinballGame:
             # coll_process.join()
         # fill the screen with a color to wipe away anything from last frame
         screen.fill("black")
-
+        self.curr_state.draw(screen, self.calc_time())
         passed = self.calc_time()
-        for ball in self.balls:
-            vel = ball.bahn.deriv().apply(passed)
-        self.curr_forms.draw(screen, (0, 255, 0), passed)
-        curr_state = self.coll_thread.check_coll(passed)
+        new_state = self.coll_thread.check_coll(passed)
         lagging_behind = None
-        if curr_state is not None:
-            self.balls, self.curr_forms, lagging_behind, n_looped = curr_state
+        if new_state is not None:
+            self.curr_state, n_looped = new_state
             self.n_colls += n_looped
-
-        for ball in self.balls:
-            ball.get_form().draw(screen, ball.color, passed)
-            ball.draw(passed, screen)
         return True
         # flip() the display to put your work on screen

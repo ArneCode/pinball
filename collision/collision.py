@@ -11,7 +11,7 @@ class Collision(ABC):
     def get_coll_t(self) -> float:
         pass
     @abstractmethod
-    def get_obj_form(self):
+    def get_obj_form(self) -> "StaticForm":
         pass
 class SimpleCollision(Collision):
     time: float

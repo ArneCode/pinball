@@ -1,5 +1,5 @@
 from __future__ import annotations
-from typing import List
+from typing import Callable, Dict, List, Optional
 from math_utils.angle import angle_distance, calc_angle_between, normalize_angle
 from objects.ball import Ball
 from collision.coll_direction import CollDirection
@@ -17,7 +17,6 @@ class Form(ABC):
     Interface for all forms. A Form is an Object inside the game. 
     Collision detection is done using the objects paths, which are extended out from the form.
     """
-
 
     @abstractmethod
     def draw(self, screen, color, time: float):
@@ -43,7 +42,7 @@ class Form(ABC):
     def get_material(self) -> Material:
         """
         Get the material of the form. This must be implemented by forms.
-        
+
         Returns:
             - Material: material of the form
         """
@@ -75,18 +74,24 @@ class Form(ABC):
             - Form: rotated form
         """
         pass
+
     @abstractmethod
     def get_json(self) -> dict:
         pass
+
     @abstractmethod
     def is_moving(self, time: float) -> bool:
         pass
 
+
 class StaticForm(Form):
     paths: List[Path]
+    on_collision: Optional[str]
 
-    def __init__(self, paths: List[Path]):
+    def __init__(self, paths: List[Path], on_collision: Optional[str]):
         self.paths = paths
+        self.on_collision = on_collision
+
     def find_collision(self, ball: Ball):
         """
         Find the first collision of the ball with the form.
@@ -110,5 +115,6 @@ class StaticForm(Form):
                 first_coll = coll
                 # print(f"new first collision: {first_coll}")
         return first_coll
+
     def is_moving(self, time: float) -> bool:
         return False

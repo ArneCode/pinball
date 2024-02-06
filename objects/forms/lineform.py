@@ -3,7 +3,7 @@ This file contains the LineForm class, which represents a straight line in the g
 """
 from __future__ import annotations
 import math
-from typing import List
+from typing import Callable, Dict, List, Optional
 
 import pygame
 from collision.coll_direction import CollDirection
@@ -32,7 +32,9 @@ class LineForm(StaticForm):
     name: str
     paths: List[Path]
 
-    def __init__(self, pos1: Vec[float], pos2: Vec[float], ball_radius: float, material: Material, name="line"):
+    def __init__(self, pos1: Vec[float], pos2: Vec[float], 
+                 ball_radius: float, material: Material, 
+                 name="line",on_collision: Optional[str] = None):
         """
         Initialize the LineForm.
 
@@ -64,7 +66,7 @@ class LineForm(StaticForm):
         self.paths.append(CirclePath(pos2, ball_radius, self,
                           angle-math.pi/2, angle+math.pi/2, CollDirection.ALLOW_FROM_OUTSIDE))
         # giving the paths to the Form class so that it can handle collisions
-        super().__init__(self.paths)
+        super().__init__(self.paths, on_collision=on_collision)
 
     def draw(self, screen, color, time: float):
         """

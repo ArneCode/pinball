@@ -2,11 +2,12 @@ from __future__ import annotations
 import copy
 import math
 import time
-from typing import List, Optional, Tuple
+from typing import Any, Callable, Dict, List, Optional, Tuple
+#from game import GameState
 
 from objects.ball import Ball
 from collision.collision import TimedCollision
-from objects.form import Form
+from objects.form import Form, StaticForm
 from objects.formhandler import FormHandler
 import multiprocessing as mp
 from multiprocessing import Queue
@@ -22,12 +23,17 @@ def empty_queue(queue: Queue):
     end_time = time.time()
     print(f"emptying queue took {end_time - start_time} seconds")
 
-def precalc_colls(in_queue: Queue[Tuple[List[Ball], FormHandler]], out_queues: List[Queue[Tuple[float, List[Ball], Optional[FormHandler]]]], stop_event, read_lag_evt):
+
+def precalc_colls(in_queue: Queue[Any], out_queues: List[Queue[GameStateChange]], stop_event, 
+                  form_functions: Dict[str, Callable[["GameState", float, int, ChangeInfo], None]]):
+    from game import GameState
+    in_queue: Queue[GameState] = in_queue
+    form_functions: Dict[str, Callable[[GameState, float, int, ChangeInfo], None]] = form_functions
     assert len(out_queues) > 2
     curr_queue_n = 0
     curr_out_queue = out_queues[curr_queue_n]
     used_queues: List[int] = []
-    balls, forms = in_queue.get()
+    game_state = in_queue.get()
     i = 0
     prev_obj = None
     prev_coll_t = 0
@@ -44,8 +50,10 @@ def precalc_colls(in_queue: Queue[Tuple[List[Ball], FormHandler]], out_queues: L
             curr_queue_n = (curr_queue_n + 1) % len(out_queues)
             curr_out_queue = out_queues[curr_queue_n]
 
-            balls, forms = in_queue.get()
-            print(f"aquired new balls and forms, named_forms: {forms.named_forms}")
+            game_state = in_queue.get()
+            print(
+                f"aquired new balls and forms, named_forms: {game_state.forms.named_forms}, new_ballang_vars: {game_state.ballang_vars}")
+            #raise Exception("new balls and forms")
             prev_obj = None
             prev_coll_t = 0
             remove_dup = False
@@ -63,9 +71,9 @@ def precalc_colls(in_queue: Queue[Tuple[List[Ball], FormHandler]], out_queues: L
         first_coll_t = float("inf")
         first_coll_ball: int = -1
         ball_forms = []
-        forms_changed = True
-        form_with_balls = forms.clone()
-        for ball in balls:
+        change_info = ChangeInfo()
+        form_with_balls = game_state.forms.copy()
+        for ball in game_state.balls:
             form = ball.get_form()
             ball_forms.append(form)
             form_with_balls.add_form(form)
@@ -73,8 +81,8 @@ def precalc_colls(in_queue: Queue[Tuple[List[Ball], FormHandler]], out_queues: L
         for form in ball_forms:
             assert isinstance(form, TransformForm)
             ball_inner_forms.append(form.form)
-        for i in range(len(balls)):
-            ball = balls[i]
+        for i in range(len(game_state.balls)):
+            ball = game_state.balls[i]
             form = ball_forms[i]
             coll = form_with_balls.find_collision(ball, ignore=[form])
             # print("found coll")
@@ -97,31 +105,39 @@ def precalc_colls(in_queue: Queue[Tuple[List[Ball], FormHandler]], out_queues: L
         log = False
         if log:
             print(f"found coll at t: {first_coll_t}")
-        ball = balls[first_coll_ball]
+        ball = game_state.balls[first_coll_ball]
         other: Form = coll.get_obj_form()
         dir = coll.get_result_dir()
         if other in ball_inner_forms:
             print(f"ball-to-ball: {first_coll_t}")
             other_ball_i = ball_inner_forms.index(other)
-            other_ball = balls[other_ball_i]
+            other_ball = game_state.balls[other_ball_i]
             other_ball = other_ball.with_start_t(first_coll_t).with_start_pos(
                 other_ball.get_pos(first_coll_t)).with_vel(dir*(-1))
-            balls[other_ball_i] = other_ball
+            game_state.balls[other_ball_i] = other_ball
+        else:
+            assert isinstance(other, StaticForm)
+            on_collision = other.on_collision
+            if on_collision is not None:
+                form_functions[on_collision](game_state, first_coll_t, first_coll_ball, change_info)
+        change_info.set_balls_changed()
         # print(f"new ball pos: {ball.get_pos(coll.time + ball.start_t)}")
         if log:
             print(f"ball-to-form: {first_coll_t}")
         ball = ball.with_start_t(first_coll_t).with_start_pos(
             ball.get_pos(first_coll_t)).with_vel(dir)
         # print(f"ball_start_t: {ball.start_t}, first_coll_t: {first_coll_t}, other: {other}")
-        balls[first_coll_ball] = ball
+        game_state.balls[first_coll_ball] = ball
         # if first_coll_t < 50 or True:
-        print(f"first_coll_t: {first_coll_t}")
-        if forms_changed:
-            if log:
-                print(f"forms changed: {first_coll_t}")
-            curr_out_queue.put((first_coll_t, copy.copy(balls), forms))
-        else:
-            curr_out_queue.put((first_coll_t, copy.copy(balls), None))
+        #print(f"first_coll_t: {first_coll_t}")
+        change = GameStateChange(first_coll_t, None, None, None)
+        if change_info.balls_changed:
+            change.new_balls = game_state.balls.copy()
+        if change_info.forms_changed:
+            change.new_forms = game_state.forms.copy()
+        if change_info.globals_changed:
+            change.new_globals = copy.deepcopy(game_state.ballang_vars)
+        curr_out_queue.put(change)
         i += 1
         end_time = time.time()
         # lock.release()
@@ -131,60 +147,84 @@ def precalc_colls(in_queue: Queue[Tuple[List[Ball], FormHandler]], out_queues: L
     raise SystemExit
 
 
+class GameStateChange:
+    change_t: float
+    new_balls: Optional[List[Ball]]
+    new_forms: Optional[FormHandler]
+    new_globals: Optional[Dict[str, Any]]
+
+    def __init__(self, change_t: float, new_balls: Optional[List[Ball]], new_forms: Optional[FormHandler], new_globals: Optional[Dict[str, Any]]):
+        self.change_t = change_t
+        self.new_balls = new_balls
+        self.new_forms = new_forms
+        self.new_globals = new_globals
+class ChangeInfo:
+    balls_changed: bool
+    forms_changed: bool
+    globals_changed: bool
+    def __init__(self, balls_changed: bool = False, forms_changed: bool = False, globals_changed: bool = False):
+        self.balls_changed = balls_changed
+        self.forms_changed = forms_changed
+        self.globals_changed = globals_changed
+    def set_balls_changed(self):
+        self.balls_changed = True
+    def set_forms_changed(self):
+        self.forms_changed = True
+    def set_globals_changed(self):
+        self.globals_changed = True
 class CollThread:
-    out_queues: List[mp.Queue[Tuple[float, List[Ball], Optional[FormHandler]]]]
+    out_queues: List[mp.Queue[GameStateChange]]
     curr_queue_n: int
-    in_queue: mp.Queue[Tuple[List[Ball], FormHandler]]
+    in_queue: mp.Queue
     #    stop_evt: mp.synchronize.Event
     proc: mp.Process
 
-    balls: List[Ball]
-    form_handler: FormHandler
+    #state: GameState
     has_read_lag: bool
 
-    next_coll_t: float
-    next_balls: List[Ball]
-    next_form: Optional[FormHandler]
+    next_change: GameStateChange
 
-    def __init__(self, balls: List[Ball], form_handler: FormHandler, num_queues: int = 100):
+    def __init__(self, game_state, num_queues: int = 100, form_functions: Dict[str, Callable[["GameState", float, int, ChangeInfo], None]] = {}):
         self.out_queues = []
         for i in range(num_queues):
             self.out_queues.append(mp.Queue())
         self.curr_queue_n = 0
         self.in_queue = mp.Queue()
-        self.in_queue.put((balls, form_handler))
+        self.state = game_state
+        self.in_queue.put(game_state)
         self.stop_evt = mp.Event()
-        self.read_lag_evt = mp.Event()
         self.has_read_lag = False
         self.proc = mp.Process(target=precalc_colls, args=(
-            self.in_queue, self.out_queues, self.stop_evt, self.read_lag_evt))
-        self.balls = balls
-        self.form_handler = form_handler
+            self.in_queue, self.out_queues, self.stop_evt, form_functions))
         self.proc.start()
-        self.next_coll_t, self.next_balls, self.next_form = self.out_queues[self.curr_queue_n].get(
-        )
+        self.next_change = self.out_queues[self.curr_queue_n].get()
 
     def get_curr_queue(self) -> mp.Queue[Tuple[float, List[Ball], Optional[FormHandler]]]:
         return self.out_queues[self.curr_queue_n]
     # checks weather the time is past the next collision and return the new ball and form if so
-
-    def check_coll(self, time: float, break_after: Optional[int] = 5) -> Tuple[List[Ball], FormHandler, float | None, int] | None:
+    def apply_next_change(self):
+        c = self.next_change
+        if c.new_balls is not None:
+            self.state.balls = c.new_balls
+        if c.new_forms is not None:
+            self.state.forms = c.new_forms
+        if c.new_globals is not None:
+            self.state.ballang_vars = c.new_globals
+    def check_coll(self, time: float, break_after: Optional[int] = 5) -> Optional[Tuple[Any,int]]:
         looped = False
         n_looped = 0
         lagging_behind = None
         # print(f"curr queue len: {self.get_curr_queue().qsize()}")
-        while time >= self.next_coll_t:
+        while time >= self.next_change.change_t:
             if break_after is not None and n_looped >= break_after:
                 print("breaking")
                 break
             n_looped += 1
-            self.balls = self.next_balls
-            if self.next_form is not None:
-                self.form_handler = self.next_form
-            self.next_coll_t, self.next_balls, self.next_form = self.get_curr_queue().get()
+            self.apply_next_change()
+            self.next_change = self.get_curr_queue().get()
             looped = True
         if looped:
-            return self.balls, self.form_handler, None, n_looped
+            return self.state, n_looped
         # if looped and time - self.ball.start_t > 10:
         #     print("lagging behind")
         #     if not self.has_read_lag:
@@ -196,20 +236,23 @@ class CollThread:
         #     return self.balls, self.form_handler, lagging_behind
         return None
 
-    def restart(self, balls: List[Ball], form_handler: FormHandler, time: float):
+    def restart(self, state, time: float):
+        from game import GameState
+        state: GameState = state
         # ball = ball.from_time(curr_t)
         # in_queue.put((ball, curr_forms))
-        self.balls = balls
-        self.form_handler = form_handler
-        for i in range(len(self.balls)):
-            self.balls[i] = self.balls[i].from_time(time)
+        self.state = state
+        # for i in range(len(self.balls)):
+        #     self.balls[i] = self.balls[i].from_time(time)
+        for i in range(len(self.state.balls)):
+            self.state.balls[i] = self.state.balls[i].from_time(time)
         # self.ball = self.ball.from_time(time)
         print("putting in queue")
-        self.in_queue.put((self.balls, form_handler))
+        self.in_queue.put(self.state)
         print("put in queue")
         self.curr_queue_n = (self.curr_queue_n + 1) % len(self.out_queues)
         print("getting next")
-        self.next_coll_t, self.next_balls, self.next_form = self.get_curr_queue().get()
+        self.next_change = self.get_curr_queue().get()
         print("got next")
         # print(f"restart, next_coll_t: {self.next_coll_t + self.ball.start_t}, curr_t: {time}, diff: {self.next_coll_t + self.ball.start_t - time}")
 
