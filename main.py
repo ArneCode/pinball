@@ -23,7 +23,7 @@ from math_utils.vec import Vec
 #from ballang_interop import prepare_functions
 
 from collision.coll_thread import CollThread
-from menus import Screen, Button
+from menus import Button, Screen, ScreenHandler
 
 normal_material = Material(0.8, 0.95, 20, 1)
 flipper_material = Material(1.1, 1.0, 40, 0.0)
@@ -165,30 +165,36 @@ if __name__ == "__main__":
             game.n_colls = 0
     game = PinballGame(start_forms=start_forms, balls=balls,
                        on_keydown=on_keydown, on_update=on_update)
-    game_button = Button(30, 30, 400, 100, 'Button One (onePress)')
-    menu_buttons = [game_button]
-    menu_screen = Screen("menu", None, menu_buttons, color = (0, 0, 255))
+    kill_screen = Screen("kill_screen", None, color = (0, 0, 0))
     game_screen = Screen("game", lambda screen: game.update(screen))
+    menu_screen = Screen("menu", None, color = (0, 0, 255))
+
+    game_button = Button(30, 30, 400, 100, game_screen.makeScreen,'Play')
+    menu_buttons = [game_button]
+    pause_button = Button(200, 200, 400, 100, menu_screen.makeScreen,"Pause")
+    game_buttons = [pause_button]
+    kill_button = Button(30, 30, 400, 100, menu_screen.makeScreen,"Return to Menu")
+    kill_buttons = [kill_button]
+    kill_screen.setButtons(kill_buttons)
+    menu_screen.setButtons(menu_buttons)
+    game_screen.setButtons(game_buttons)
+    
+    Screen_list = [menu_screen, game_screen, kill_screen]
+    Handler = ScreenHandler(Screen_list)
     k = 0
     # curr_pressed.add(pygame.K_SPACE)
-    win = menu_screen.makeScreen()
+    win = kill_screen.makeScreen()
     while running:
-        menu_screen.ScreenUpdate(screen)
-        game_screen.ScreenUpdate(screen)
-        if menu_screen.checkState():
-            menu_screen.DrawButton(screen)
-        for event in pygame.event.get():
-            game.handle_event(event)
-            if menu_screen.checkState():
-            
-                for menu_button in menu_screen.button_list:
-                    if menu_button.process(event):
 
-                        win = game_screen.makeScreen()
-                        menu_screen.endScreen()
-                        print(f"The State of the menu is :{menu_screen.checkState()}")
+
+        
         if game_screen.checkState():
-            game_screen.runFunction(screen)    
+            game_screen.runFunction(screen)
+        Handler.update(screen)
+        for event in pygame.event.get():
+            Handler.handle_event(event)
+            game.handle_event(event)
+                
 
 
         # if not game.update(screen=screen):
