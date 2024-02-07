@@ -1,26 +1,32 @@
 from abc import ABC
 from typing import Dict, List, Optional, TypeVar, cast
-from eval_visitor import EvalVisitor
 
-from grammar import AnyNumber, AnyString, AnyWord, Capture, Labeled, Maybe, Multiple, Sequence, Symbol, SymbolParser, Word
-from lexer import TokenStream, lex
-from node import CodeFileNode, FuncArgNode, FunctionDefNode, Node, NumberNode, ReturnNode, StringNode, SymbolNode, TwoSideOpNode,  VarNode, VarDefNode, AssignNode, FuncCallNode, CodeBlockNode, IfNode, WordNode, whileNode
-from tostring_visitor import ToStringVisitor
+from .grammar import AnyNumber, AnyString, AnyWord, Capture, Labeled, Maybe, Multiple, Sequence, Symbol, SymbolParser, Word
+from .lexer import TokenStream, lex
+from .node import CodeFileNode, FuncArgNode, FunctionDefNode, Node, NumberNode, ReturnNode, StringNode, SymbolNode, TwoSideOpNode, UnaryOpNode,  VarNode, VarDefNode, AssignNode, FuncCallNode, CodeBlockNode, IfNode, WordNode, whileNode
+from .tostring_visitor import ToStringVisitor
 
 
 def parse_op(symbol: str, left: Node, right: Node):
-    assert symbol in ["+", "-", "*", "/", "<", ">", "==", "!=", "<=", ">="]
+    assert symbol in ["+", "-", "*", "/", "<", ">", "==",
+                      "!=", "<=", ">=", "&&", "||"], f"unknown symbol {symbol}"
     return TwoSideOpNode(symbol, left, right)
    # raise Exception("unknown symbol")
 
 
-def op_capture(x: Dict[str, Node]) -> Node:
+def twoside_op_capture(x: Dict[str, Node]) -> Node:
     if "right" in x:
         symbol = x["symbol"]
         assert isinstance(symbol, SymbolNode)
         return parse_op(symbol.symbol, x["left"], x["right"])
     else:
         return x["left"]
+
+
+def unary_op_capture(x: Dict[str, Node]) -> Node:
+    sign = x["sign"]
+    assert isinstance(sign, SymbolNode)
+    return UnaryOpNode(sign.symbol, x["node"])
 
 
 NodeT = TypeVar("NodeT")
@@ -119,10 +125,12 @@ def file_capture(x: Dict[str, Node]) -> Node:
         assert isinstance(func, FunctionDefNode)
     return CodeFileNode(cast(List[FunctionDefNode], functions))
 
+
 def return_capture(x: Dict[str, Node]) -> Node:
     if "value" in x:
         return ReturnNode(x["value"])
     return ReturnNode()
+
 
 def get_grammar():
     PLUS = SymbolParser("+", SymbolNode)
@@ -135,6 +143,10 @@ def get_grammar():
     GEQ = SymbolParser(">=", SymbolNode)
     LT = SymbolParser("<", SymbolNode)
     GT = SymbolParser(">", SymbolNode)
+    NOT = SymbolParser("!", SymbolNode)
+
+    AND = SymbolParser("&&", SymbolNode)
+    OR = SymbolParser("||", SymbolNode)
 
     semicolon = Symbol(";")
 
@@ -142,16 +154,17 @@ def get_grammar():
     anyNumber = AnyNumber(NumberNode)
     anyString = AnyString(StringNode)
 
-    plusminus = Capture(func=op_capture)
-    dotdiv = Capture(func=op_capture)
-    comparison = Capture(func=op_capture)
+    plusminus = Capture(func=twoside_op_capture)
+    dotdiv = Capture(func=twoside_op_capture)
+    comparison = Capture(func=twoside_op_capture)
+    logical_op = Capture(func=twoside_op_capture)
 
     IF = Word("if")
     ELSE = Word("else")
     WHILE = Word("while")
     LET = Word("let")
 
-    expression = comparison
+    expression = logical_op
     var_def: Capture[Node] = Capture(Sequence([
         LET,
         Labeled(anyWord, "name"),
@@ -173,7 +186,11 @@ def get_grammar():
         Labeled(var, "var"),
         Symbol("("),
         Multiple(
-            Labeled(expression, "arg{#id}")
+            Sequence([
+            Labeled(expression, "arg{#id}"),
+            Maybe(
+                Symbol(",") # fix this 
+            )])
         ),
         Symbol(")")
     ]), func=func_call_capture)
@@ -229,7 +246,12 @@ def get_grammar():
         Word("def"),
         Labeled(anyWord, "name"),
         Symbol("("),
-        Multiple(Labeled(func_arg, "arg{#id}")),
+        Multiple(Sequence([
+            Labeled(func_arg, "arg{#id}"),
+            Maybe(
+                Symbol(",") # fix this 
+            )]
+        )),
         Symbol(")"),
         Labeled(block, "body")
     ]))
@@ -242,8 +264,13 @@ def get_grammar():
         Labeled(expression, "x"),
         Symbol(")")
     ]), func=lambda x: x["x"])
+    unary_op = Capture(func=unary_op_capture)
+    primary = func_call | var | anyNumber | anyString | paren | unary_op
 
-    primary = func_call | var | anyNumber | anyString | paren
+    unary_op.set(Sequence([
+        Labeled(NOT | MINUS, "sign"),
+        Labeled(primary, "node")
+    ]))
 
     dotdiv.set(Sequence([
         Labeled(primary, "left"),
@@ -271,13 +298,20 @@ def get_grammar():
             Labeled(plusminus, "right")
         ]))
     ]))
+    logical_op.set(Sequence([
+        Labeled(comparison, "left"),
+        Maybe(Sequence([
+            Labeled(AND | OR, "symbol"),
+            Labeled(logical_op, "right")
+        ]))
+    ]))
 
     return file
 
 
 def parse(code: str) -> Node:
-    tokens = lex(code, symbol_chars="+-*/(){};=<>!",
-                 multi_symbols=["==", "<=", ">=", "!="])
+    tokens = lex(code, symbol_chars="+-*/(){};=<>!&|,",
+                 multi_symbols=["==", "<=", ">=", "!=", "&&", "||"])
     stream = TokenStream(tokens)
     grammar = get_grammar()
     return grammar.parse(stream)
@@ -313,11 +347,11 @@ if __name__ == "__main__":
         """
         parsed = parse(text)
 
-        #text = parsed.accept(ToStringVisitor())
-        #print(text)
+        # text = parsed.accept(ToStringVisitor())
+        # print(text)
         print(parsed)
-        #print("result: ")
+        # print("result: ")
         # evaluate
-        from evaluate import evaluate
+        from .evaluate import evaluate
         evaluate(text, "test")
-        #parsed.accept(EvalVisitor(entry_function="test"))
+        # parsed.accept(EvalVisitor(entry_function="test"))

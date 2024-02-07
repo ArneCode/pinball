@@ -1,6 +1,7 @@
-from ballang import parse
-from eval_visitor import EvalVisitor, Function, PythonFunction, Scope
-from node import CodeFileNode
+from typing import Dict
+from .ballang import parse
+from .eval_visitor import EvalVisitor, Function, PythonFunction, Scope, Value
+from .node import CodeFileNode
 
 
 def get_ballang_function(file: str, entry_function: str) -> Function:
@@ -19,6 +20,17 @@ def get_ballang_function(file: str, entry_function: str) -> Function:
         raise Exception("entry function not found")
     assert isinstance(func, Function)
     return func
+def parse_file(file: str, global_functions: dict) -> Scope:
+    fns: Dict[str, Value] = {}
+    for name, fn in global_functions.items():
+        fns[name] = PythonFunction(fn, name)
+    global_scope = Scope(fns)
+    parsed = parse(file)
+    assert isinstance(parsed, CodeFileNode)
+    for function_def in parsed.functions.values():
+        function_def.accept(EvalVisitor(global_scope))
+    return global_scope
+
 def evaluate(file: str, entry_function: str):
     func = get_ballang_function(file, entry_function)
     func.call([])

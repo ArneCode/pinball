@@ -2,7 +2,7 @@
 from __future__ import annotations
 from abc import ABC, abstractmethod
 from typing import Any, Callable, Dict, List, Optional, Union
-from node import CodeBlockNode, CodeFileNode, FuncArgNode, FuncCallNode, FunctionDefNode, IfNode, NodeVisitor, ReturnNode, SymbolNode, TwoSideOpNode, WordNode, NumberNode, VarNode, VarDefNode, AssignNode, StringNode, whileNode
+from .node import CodeBlockNode, CodeFileNode, FuncArgNode, FuncCallNode, FunctionDefNode, IfNode, NodeVisitor, ReturnNode, SymbolNode, TwoSideOpNode, UnaryOpNode, WordNode, NumberNode, VarNode, VarDefNode, AssignNode, StringNode, whileNode
 
 
 class Function(ABC):
@@ -14,12 +14,15 @@ class Function(ABC):
 
 class PythonFunction(Function):
     func: Callable[[List[Value]], Value]
-    def __init__(self, func: Callable[[List[Value]], Value]):
+    name: str
+    def __init__(self, func: Callable[[List[Value]], Value], name:str = "PythonFunction"):
         self.func = func
+        self.name = name
     
     def call(self, args: List[Value]) -> Value:
         return self.func(args)
-
+    def __str__(self) -> str:
+        return f"PythonFunction({self.name}, {self.func})"
 class BallangFunction(Function):
     args: List[FuncArgNode]
     body: CodeBlockNode
@@ -44,6 +47,8 @@ class BallangFunction(Function):
         except ReturnException as e:
             return e.value
         return None
+    def __str__(self) -> str:
+        return f"BallangFunction({self.args}, {self.body})"
 
 
 class Scope:
@@ -106,7 +111,7 @@ class EvalVisitor(NodeVisitor[Value]):
         left = node.left.accept(self)
         right = node.right.accept(self)
         assert left is not None and right is not None
-        assert not isinstance(left, bool) and not isinstance(right, bool)
+        #assert not isinstance(left, bool) and not isinstance(right, bool)
         assert not isinstance(left, Function) and not isinstance(right, Function)
 #        if isinstance(left, str) or isinstance(right, str):
 #            raise Exception("cannot apply operator to string")
@@ -123,20 +128,32 @@ class EvalVisitor(NodeVisitor[Value]):
         if node.sign == "-":
             return left - right
 
-        if node.sign == "/":
+        elif node.sign == "/":
             return left / right
-        if node.sign == "==":
+        elif node.sign == "==":
             return left == right
-        if node.sign == "!=":
+        elif node.sign == "!=":
             return left != right
-        if node.sign == "<=":
+        elif node.sign == "<=":
             return left <= right
-        if node.sign == ">=":
+        elif node.sign == ">=":
             return left >= right
-        if node.sign == "<":
+        elif node.sign == "<":
             return left < right
-        if node.sign == ">":
+        elif node.sign == ">":
             return left > right
+        elif node.sign == "&&":
+            return left and right
+        elif node.sign == "||":
+            return left or right
+        raise Exception("unknown operator")
+    def visit_unary_op(self, node: UnaryOpNode) -> Value:
+        value = node.node.accept(self)
+        assert value is not None
+        if node.sign == "-":
+            return -value
+        elif node.sign == "!":
+            return not value
         raise Exception("unknown operator")
     
     def visit_code_block(self, node: CodeBlockNode) -> Value:
@@ -177,7 +194,7 @@ class EvalVisitor(NodeVisitor[Value]):
             self.scope.define(node.name, None)
             return None
         self.scope.define(node.name, node.value.accept(self))
-        print(f"defined {node.name}, scope: {self.scope}")
+        #print(f"defined {node.name}, scope: {self.scope}")
         return None
     
     def visit_assign(self, node: AssignNode) -> Value:

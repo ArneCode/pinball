@@ -1,6 +1,6 @@
 from __future__ import annotations
 from typing import Dict, Union
-from node import CodeFileNode, FuncArgNode, FunctionDefNode, NodeVisitor, ReturnNode, StringNode, TwoSideOpNode, Node, CodeBlockNode, IfNode, WordNode, SymbolNode, NumberNode, VarNode, VarDefNode, AssignNode, FuncCallNode, whileNode
+from .node import CodeFileNode, FuncArgNode, FunctionDefNode, NodeVisitor, ReturnNode, StringNode, TwoSideOpNode, Node, CodeBlockNode, IfNode, UnaryOpNode, WordNode, SymbolNode, NumberNode, VarNode, VarDefNode, AssignNode, FuncCallNode, whileNode
 
 # walks the tree and makes string representation of it
 
@@ -15,6 +15,9 @@ class ToStringVisitor(NodeVisitor[str]):
 
     def visit_two_side_op(self, node: TwoSideOpNode) -> str:
         return f"{node.left.accept(self)} {node.sign} {node.right.accept(self)}"
+    
+    def visit_unary_op(self, node: UnaryOpNode) -> str:
+        return f"{node.sign}{node.node.accept(self)}"
 
     def visit_code_block(self, node: CodeBlockNode) -> str:
         print(f"visiting code block, indent: {self.indent}")

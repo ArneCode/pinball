@@ -4,7 +4,7 @@ from types import UnionType
 from typing import Any, Callable, Dict, List, Optional, TypeVar, Generic
 from abc import ABC, abstractmethod
 
-from lexer import CodeSlice, TokenStream, lex, TokenType
+from .lexer import CodeSlice, TokenStream, lex, TokenType
 
 
 NodeT = TypeVar("NodeT")

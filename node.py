@@ -11,7 +11,7 @@ class Node(ABC):
         pass
 
     def __str__(self) -> str:
-        from tostring_visitor import ToStringVisitor
+        from .tostring_visitor import ToStringVisitor
         return self.accept(ToStringVisitor())
 
 
@@ -27,6 +27,16 @@ class TwoSideOpNode(Node):
 
     def accept(self, visitor: NodeVisitor[T]) -> T:
         return visitor.visit_two_side_op(self)
+class UnaryOpNode(Node):
+    sign: str
+    node: Node
+
+    def __init__(self, sign: str, node: Node):
+        self.sign = sign
+        self.node = node
+    
+    def accept(self, visitor: NodeVisitor[T]) -> T:
+        return visitor.visit_unary_op(self)
 
 
 class NumberNode(Node):
@@ -193,6 +203,10 @@ class CodeFileNode(Node):
 class NodeVisitor(Generic[T], ABC):
     @abstractmethod
     def visit_two_side_op(self, node: TwoSideOpNode) -> T:
+        pass
+
+    @abstractmethod
+    def visit_unary_op(self, node: UnaryOpNode) -> T:
         pass
     
     @abstractmethod
