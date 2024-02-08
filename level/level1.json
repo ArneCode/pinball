@@ -5,8 +5,9 @@
             "y": 9.8
         },
         "background_img": "src/backgrounds/background.png",
-        "game_speed": 8.5,
-        "ball_radius": 20
+        "speed": 8.5,
+        "ball_radius": 20,
+        "name": "level1"
     },
     "on_init": {
         "type": "BallangString",

@@ -1,3 +1,4 @@
+import json
 import time
 from typing import Dict, List, Set
 
@@ -134,6 +135,15 @@ def get_update_functions(game: PinballGame) -> Dict:
         game.start_time = time.time_ns()
         game.speed += amnt
 
+    def read_file_var(name: str):
+        return game.file_vars.get(name)
+    
+    def set_file_var(name: str, value):
+        game.file_vars[name] = value
+        file_name = f"{game.name}.json"
+        with open(file_name, "w") as f:
+            json.dump(game.file_vars, f)
+
 
     funcs = {
         "print": print,
@@ -142,6 +152,8 @@ def get_update_functions(game: PinballGame) -> Dict:
         "restart_colls": restart_colls,
         "increase_speed": increase_speed,
         "decrease_speed": decrease_speed,
+        "read_file_var": read_file_var,
+        "set_file_var": set_file_var,
     }
     funcs.update(get_state_functions(game.curr_state, ChangeInfo()))
     return funcs

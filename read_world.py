@@ -318,10 +318,26 @@ def {name}(t,ball_id){{
             on_init = prepare_init_function(self.ballang_funcs[on_init], on_init)
         else:
             on_init = None
+        
+        name = self.get_global("name")
+        speed = self.get_global("speed")
+        data_file = f"{name}.json"
+        # find out wether the file exists
+        try:
+            with open(data_file, "r") as f:
+                pass
+        except FileNotFoundError:
+            with open(data_file, "w") as f:
+                f.write(json.dumps({}))
+        with open(data_file, "r") as f:
+            data = json.load(f)
+        
         #forms.add_form(rotating_polygon)
         state = GameState(forms, balls, globals)
         game = PinballGame(start_state=state,
-                            on_keydown=on_keydown, on_update=on_update, on_init = on_init, speed=9.0, coll_fns=coll_fns)
+                            on_keydown=on_keydown, on_update=on_update, on_init = on_init, 
+                            speed=speed, coll_fns=coll_fns, name=name, 
+                            file_vars=data)
         return game
 #         for form in self.data["forms"]:
 
