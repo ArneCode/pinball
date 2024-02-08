@@ -96,18 +96,28 @@ class FormHandler:
             form.draw(screen, color, time)
 
     def find_collision(self, ball: Ball, ignore: List[Form] = []):
-        first_coll = None
-        for form in self.forms + list(self.named_forms.values()):
-            if form in ignore:
-                continue
-            coll = form.find_collision(ball)
-            if coll is None:
-                continue
-            if first_coll is None or coll.get_coll_t() < first_coll.get_coll_t():
-                first_coll = coll
-            else:
-                pass
-                # print(f"no reset, coll_t: {coll.get_coll_t()}, first_coll_t: {first_coll.get_coll_t()}")
-        if first_coll is not None and False:
-            print(f"first_coll: {first_coll.get_coll_t()}")
-        return first_coll
+            """
+            Finds the first collision between the given ball and the forms in the form handler.
+            
+            Parameters:
+            - ball (Ball): The ball object to check for collision.
+            - ignore (List[Form]): A list of forms to ignore during collision detection.
+            
+            Returns:
+            - coll (Collision): The first collision found, or None if no collision occurs.
+            """
+            first_coll = None
+            for form in self.forms + list(self.named_forms.values()):
+                if form in ignore:
+                    continue
+                coll = form.find_collision(ball)
+                if coll is None:
+                    continue
+                if first_coll is None or coll.get_coll_t() < first_coll.get_coll_t():
+                    first_coll = coll
+                else:
+                    pass
+                    # print(f"no reset, coll_t: {coll.get_coll_t()}, first_coll_t: {first_coll.get_coll_t()}")
+            if first_coll is not None and False:
+                print(f"first_coll: {first_coll.get_coll_t()}")
+            return first_coll

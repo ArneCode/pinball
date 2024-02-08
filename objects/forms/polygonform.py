@@ -67,8 +67,8 @@ class PolygonForm(StaticForm):
 
     def __init__(self, points: List[Vec[float]],
                  material: Material, self_coll_direction: CollDirection = CollDirection.ALLOW_FROM_OUTSIDE,
-                 line_coll_direction: CollDirection = CollDirection.ALLOW_FROM_OUTSIDE, name="polygon", edge_normals: Optional[List[Vec[float]]] = None,
-                  on_collision: Optional[str] = None):
+                 line_coll_direction: CollDirection = CollDirection.ALLOW_FROM_OUTSIDE, ball_radius: float = 50, name="polygon", edge_normals: Optional[List[Vec[float]]] = None,
+                  on_collision: List[str] = [], filled: bool = False):
         """
         Create a new polygon form
         
@@ -88,16 +88,19 @@ class PolygonForm(StaticForm):
         self.material = material
         self.self_coll_direction = self_coll_direction
         self.line_coll_direction = line_coll_direction
+        self.filled = filled
+
+        self.ball_radius = ball_radius
         if edge_normals is None:
             self.find_edge_normals()
         else:
             self.edge_normals = edge_normals
         if self_coll_direction == CollDirection.ALLOW_FROM_INSIDE:
-            self.paths = self.make_paths(50, -1)
+            self.paths = self.make_paths(ball_radius, -1)
         elif self_coll_direction == CollDirection.ALLOW_FROM_OUTSIDE:
-            self.paths = self.make_paths(50, 1)
+            self.paths = self.make_paths(ball_radius, 1)
         else:
-            self.paths = self.make_paths(50) + self.make_paths(50, -1)
+            self.paths = self.make_paths(ball_radius) + self.make_paths(50, -1)
         self.point_tuples = []
 
         for point in points:
@@ -272,7 +275,10 @@ class PolygonForm(StaticForm):
         Returns:
             None
         """
-        pygame.draw.polygon(screen, color, self.point_tuples, width=3)
+        if self.filled:
+            pygame.draw.polygon(screen, color, self.point_tuples, 0)
+        else:
+            pygame.draw.polygon(screen, color, self.point_tuples, width=3)
         for path in self.paths:
             path.draw(screen, color)
 
@@ -286,7 +292,7 @@ class PolygonForm(StaticForm):
         Returns:
             List[Vec[float]]: The points of the polygon
         """
-        return self.points
+        return self.points+[self.points[0]]
 
     def get_name(self):
         """
@@ -311,7 +317,7 @@ class PolygonForm(StaticForm):
         new_points = []
         for point in self.points:
             new_points.append(point.rotate(angle, center))
-        return PolygonForm(new_points, self.material, self.self_coll_direction, self.line_coll_direction, self.name)
+        return PolygonForm(new_points, self.material, self.self_coll_direction, self.line_coll_direction, self.ball_radius, self.name)
 
     def get_material(self) -> Material:
         """

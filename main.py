@@ -1,11 +1,13 @@
 from __future__ import annotations
 import copy
+import json
 import math
 import random
 import time
 from typing import List, Set, Tuple
 import pygame
 from ballang import parse_file
+from ballang_vars import VarHandler
 from game import GameState, PinballGame, make_flipper, make_rotating
 from objects.ball import Ball
 from collision.coll_direction import CollDirection
@@ -44,7 +46,7 @@ if __name__ == "__main__":
     dt = 0.001
     balls = []
     # create ball
-    _ball = Ball(Vec(200, 550), 50, "red").with_acc(Vec(0, 9.81)).with_vel(Vec(
+    _ball = Ball(Vec(200, 550), 20, "red").with_acc(Vec(0, 9.81)).with_vel(Vec(
         -50, -300
     ))
     # 50.0 + 17.28480702·x, 479.61721365 - 93.0223965·x + 4.905·x²
@@ -75,7 +77,7 @@ if __name__ == "__main__":
     start_forms = FormHandler()
     # rand
     rand = PolygonForm([Vec(0, 0), Vec(1280, 0), Vec(1280, 720), Vec(
-        0, 720)], normal_material, CollDirection.ALLOW_FROM_INSIDE, on_collision="on_collide")
+        0, 720)], normal_material, CollDirection.ALLOW_FROM_INSIDE, on_collision=["on_collide"], filled=False)
     start_forms.add_form(rand)
 
     flipper_line = LineForm(Vec(100, 720), Vec(
@@ -96,11 +98,12 @@ if __name__ == "__main__":
     coll = polygon.find_collision(_ball_neu)
     print(f"got coll: {coll}")
     rotating_polygon = make_rotating(polygon, Vec(250, 250), 100)
-    # rotating_rotating_polygon = make_rotating(rotating_polygon, Vec(300, 300), 1000)
-    # start_forms.add_form(polygon)
-    # start_forms.add_form(rotating_polygon)
-    rotated_floating_ball = make_rotating(floating_ball, Vec(700, 420), 100)
-    start_forms.add_form(rotated_floating_ball)
+    rotating_rotating_polygon = make_rotating(rotating_polygon, Vec(300, 300), 1000)
+    print(f"rotating_polygon: {json.dumps(polygon.get_json())}")
+    #start_forms.add_form(polygon)
+    start_forms.add_form(rotating_polygon)
+    rotated_floating_ball = make_rotating(floating_ball, Vec(500, 420), 100)
+    #start_forms.add_form(rotated_floating_ball)
     curr_forms = start_forms
     last_time = 0
 
@@ -108,35 +111,44 @@ if __name__ == "__main__":
     n_colls = 0
 
     flipper_moving_up = make_flipper(
-                flipper_line, Vec(100, 720), 1, 0, 3, False, 0.0)
+                flipper_line, Vec(100, 720), -1, 0, 3, False, 0.0)
+    print(f"flipper_moving_up: {json.dumps(flipper_moving_up.get_json())}")
     flipper_moving_down = make_flipper(
-                flipper_line, Vec(100, 720), 1, 0, 10, True, 0.0)
+                flipper_line, Vec(100, 720), -1, 0, 10, True, 0.0)
+    print(f"flipper_moving_down: {json.dumps(flipper_moving_down.get_json())}")
     
     start_forms.set_hidden_form("flipper_moving_up", flipper_moving_up)
     start_forms.set_hidden_form("flipper_moving_down", flipper_moving_down)
 
     hidden_circle = CircleForm(Vec(100, 100), 50, normal_material, (0, 0, 0))
     start_forms.set_hidden_form("hidden_circle", hidden_circle)
-    globals = {"flipper_moving_up": False, "n_border_colls": 0, "hidden_circle_spawned": False}
+    #globals = {"flipper_moving_up": False, "n_border_colls": 0, "hidden_circle_spawned": False}
+    globals = VarHandler()
+    globals.set_var("flipper_moving_up", False, 0.0)
+    globals.set_var("n_border_colls", 0, 0.0)
+    globals.set_var("hidden_circle_spawned", False, 0.0)
 
     on_update_code = """
  def on_update(){
+      let t = calc_time();
      let flipper_moving_up = read_global("flipper_moving_up");
-     let t = calc_time();
      let flipper_moving = is_moving("flipper",t);
+     if flipper_moving {
+        show_text("flipper_moving_up: "+str(flipper_moving_up), 100, 100, 20);
+     }
      if is_key_pressed(32) && !flipper_moving_up && !flipper_moving {
         print("option 1");
          spawn_form_timed("flipper_moving_up", "flipper", t);
          print("c");
-        set_global("flipper_moving_up", 1==1);
          restart_colls(t);
+        set_global("flipper_moving_up", 1==1, t);
      }else if !is_key_pressed(32) && flipper_moving_up && !flipper_moving {
         print("option 2");
          spawn_form_timed("flipper_moving_down", "flipper", t);
          print("c");
-         set_global("flipper_moving_up", 0==1);
          restart_colls(t);
          print("d");
+         set_global("flipper_moving_up", 0==1, t);
          
          print("e");
     }
@@ -145,11 +157,11 @@ if __name__ == "__main__":
     on_collide_code = """
 def on_collide(t, ball_id){
     let n_border_colls = read_global("n_border_colls");
-    set_global("n_border_colls", n_border_colls + 1);
+    set_global("n_border_colls", n_border_colls + 1, t);
     if !read_global("hidden_circle_spawned") {
         print("spawning hidden circle");
         show_named_form("hidden_circle", "hidden_circle");
-        set_global("hidden_circle_spawned", 1==1);
+        set_global("hidden_circle_spawned", 1==1, t);
     }
 }
 """
@@ -159,7 +171,7 @@ def on_collide(t, ball_id){
 #             print(f"key was pressed: {evt.key}")
 #     continue
     def on_update(game: PinballGame):
-        run_update_function(on_update_code, game, "on_update")
+        run_update_function(on_update_code, game, "on_update", screen)
     def on_update_pseudo(game: PinballGame):
         funcs = get_update_functions(game, globals)
         # ballang_funcs = parse_file(on_update_code, funcs)
@@ -238,24 +250,26 @@ def on_collide(t, ball_id){
         # if key is the letter "r", reset n_colls
         if key == pygame.K_r:
             game.n_colls = 0
-    coll_fns = {"on_collide": prepare_coll_function(on_collide_code, "on_collide")}
-    game = PinballGame(start_state=GameState(start_forms, balls, globals),
-                       on_keydown=on_keydown, on_update=on_update, coll_fns=coll_fns, speed=9.0)
-    
-    # world = World("level/level1.json")
-    # forms = world.get_forms()
-
-    # game = PinballGame(start_forms=forms, balls=balls,
-    #                       on_keydown=None, on_update=None, speed=9.0)
+    if False:
+        coll_fns = {"on_collide": prepare_coll_function(on_collide_code, "on_collide")}
+        game = PinballGame(start_state=GameState(start_forms, balls, globals),
+                        on_keydown=on_keydown, on_update=on_update, coll_fns=coll_fns, speed=9.0)
+    else:
+        world = World("level/level1.json")
+        #forms, ballang_funcs = world.get_forms()
+        #print(f"ballang_funcs: {ballang_funcs}")
+        game = world.parse_game()
     k = 0
     # curr_pressed.add(pygame.K_SPACE)
     while running:
-        print(f"globals: {game.curr_state.ballang_vars}")
-        #print(f"passed: {game.calc_time()}")
+        #print(f"globals: {game.curr_state.ballang_vars}")
+        print(f"passed: {game.calc_time()}")
         if not game.update(screen=screen):
+            print("end")
             break
         pygame.display.flip()
         clock.tick(60)
 
     pygame.quit()
+    game.coll_thread.stop()
     # coll_process.join()

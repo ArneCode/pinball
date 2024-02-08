@@ -1,5 +1,7 @@
 import time
 from typing import Dict, List, Set
+
+import pygame
 from collision.coll_thread import ChangeInfo
 from game import GameState, PinballGame
 from objects.ball import Ball
@@ -11,11 +13,11 @@ from objects.forms.timedform import TimedForm
 
 def get_state_functions(state: GameState, change_info: ChangeInfo) -> Dict:
     def read_global(name: str) -> Value:
-        assert name in state.ballang_vars, f"global variable {name} not found"
-        return state.ballang_vars[name]
+        print(f"ballang_vars: {state.ballang_vars}")
+        return state.ballang_vars.get_var(name)
 
-    def set_global(name: str, value: Value) -> None:
-        state.ballang_vars[name] = value
+    def set_global(name: str, value: Value, time: float) -> None:
+        state.ballang_vars.set_var(name, value, time)
         change_info.set_globals_changed()
 
     def remove_named_form(name: str) -> None:
@@ -44,6 +46,7 @@ def get_state_functions(state: GameState, change_info: ChangeInfo) -> Dict:
         change_info.set_forms_changed()
 
     def remove_ball(ball_id: int) -> None:
+        print(f"removing ball with id {ball_id}")
         for i, ball in enumerate(state.balls):
             if i == ball_id:
                 state.balls = state.balls[:i] + state.balls[i+1:]
@@ -56,6 +59,8 @@ def get_state_functions(state: GameState, change_info: ChangeInfo) -> Dict:
         form = state.forms.get_named_form(name)
         assert form is not None, f"is_moving: form with name {name} not found"
         return form.is_moving(time)
+    def to_str(val: Value):
+        return str(val)
 
     funcs = {
         "read_global": read_global,
@@ -67,10 +72,20 @@ def get_state_functions(state: GameState, change_info: ChangeInfo) -> Dict:
         "show_named_form": show_named_form,
         "spawn_form_timed": spawn_form_timed,
         "is_moving": is_moving,
+        "str": to_str,
     }
     return funcs
 
-
+def get_screen_functions(screen) -> Dict:
+    def show_text(text: str, x: float, y: float, size: int):
+        print(f"showing text {text} at {x}, {y}")
+        font = pygame.font.Font(None, int(size))
+        text = font.render(text, True, (255, 255, 255))
+        screen.blit(text, (x, y))
+    funcs = {
+        "show_text": show_text,
+    }
+    return funcs
 def get_update_functions(game: PinballGame) -> Dict:
 
     def is_key_pressed(key: int):
@@ -82,22 +97,56 @@ def get_update_functions(game: PinballGame) -> Dict:
     def restart_colls(t: float):
         game.restart_colls(t)
 
+    def increase_speed(amnt: float):
+        game.last_time = game.calc_time()
+        game.start_time = time.time_ns()
+        game.speed -= amnt
+    
+    def decrease_speed(amnt: float):
+        game.last_time = game.calc_time()
+        game.start_time = time.time_ns()
+        game.speed += amnt
+
+
     funcs = {
         "print": print,
         "is_key_pressed": is_key_pressed,
         "calc_time": calc_time,
         "restart_colls": restart_colls,
+        "increase_speed": increase_speed,
+        "decrease_speed": decrease_speed,
     }
     funcs.update(get_state_functions(game.curr_state, ChangeInfo()))
     return funcs
 
 
-def run_update_function(file: str, game: PinballGame, function_name: str):
+def run_update_function(file: str, game: PinballGame, function_name: str, screen: pygame.Surface):
     funcs = get_update_functions(game)
+    funcs.update(get_screen_functions(screen))
     ballang_funcs = parse_file(file, funcs)
     on_update = ballang_funcs.get(function_name)
     assert on_update is not None, f"function {function_name} not found"
     on_update()
+def prepare_update_function(file: str, function_name: str):
+    def run_update_function(game: PinballGame, screen: pygame.Surface):
+        print(f"running update function {function_name}, file: {file}")
+        funcs = get_update_functions(game)
+        funcs.update(get_screen_functions(screen))
+        ballang_funcs = parse_file(file, funcs)
+        on_update = ballang_funcs.get(function_name)
+        assert on_update is not None, f"function {function_name} not found"
+        on_update()
+    return run_update_function
+
+def prepare_init_function(file: str, function_name: str):
+    def run_init_function(game: PinballGame):
+        print(f"running init function {function_name}, file: {file}")
+        funcs = get_update_functions(game)
+        ballang_funcs = parse_file(file, funcs)
+        on_init = ballang_funcs.get(function_name)
+        assert on_init is not None, f"function {function_name} not found"
+        on_init()
+    return run_init_function
 
 
 # def run_state_function(state: GameState, change_info: ChangeInfo, file: str, function_name: str):
@@ -109,12 +158,23 @@ def run_update_function(file: str, game: PinballGame, function_name: str):
 
 def prepare_coll_function(file: str, function_name: str):
     def run_coll_function(state: GameState, coll_t: float, ball_id: int, change_info: ChangeInfo):
+        #print(f"running coll function {function_name}, file: {file}")
         funcs = get_state_functions(state, change_info)
         ballang_funcs = parse_file(file, funcs)
         coll_fn = ballang_funcs.get(function_name)
         assert coll_fn is not None, f"function {function_name} not found"
         coll_fn(coll_t, ball_id)
     return run_coll_function
+
+def prepare_keydown_function(file: str, function_name: str):
+    def run_keydown_function(game: PinballGame, key: int):
+        print(f"running keydown function {function_name}, file: {file}")
+        funcs = get_update_functions(game)
+        ballang_funcs = parse_file(file, funcs)
+        on_keydown = ballang_funcs.get(function_name)
+        assert on_keydown is not None, f"function {function_name} not found"
+        on_keydown(key)
+    return run_keydown_function
 
 
 if __name__ == "__main__":

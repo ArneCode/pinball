@@ -1,0 +1,24 @@
+def on_update(){
+      let t = calc_time();
+     let flipper_moving_up = read_global("flipper_moving_up");
+     let flipper_moving = is_moving("flipper",t);
+     if flipper_moving {
+        show_text("flipper_moving_up: "+str(flipper_moving_up), 100, 100, 20);
+     }
+     if is_key_pressed(32) && !flipper_moving_up && !flipper_moving {
+        print("option 1");
+         spawn_form_timed("flipper_moving_up", "flipper", t);
+         print("c");
+         restart_colls(t);
+        set_global("flipper_moving_up", 1==1, t);
+     }else if !is_key_pressed(32) && flipper_moving_up && !flipper_moving {
+        print("option 2");
+         spawn_form_timed("flipper_moving_down", "flipper", t);
+         print("c");
+         restart_colls(t);
+         print("d");
+         set_global("flipper_moving_up", 0==1, t);
+         
+         print("e");
+    }
+ }

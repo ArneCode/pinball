@@ -86,9 +86,9 @@ class Form(ABC):
 
 class StaticForm(Form):
     paths: List[Path]
-    on_collision: Optional[str]
+    on_collision: List[str]
 
-    def __init__(self, paths: List[Path], on_collision: Optional[str]):
+    def __init__(self, paths: List[Path], on_collision: List[str]):
         self.paths = paths
         self.on_collision = on_collision
 

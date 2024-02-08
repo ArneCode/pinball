@@ -4,7 +4,7 @@ from typing import Callable, Dict, List, Optional, Tuple
 
 import pygame
 from collision.coll_direction import CollDirection
-from math_utils.angle import angle_distance
+from math_utils.angle import angle_distance, rad_to_deg
 from objects.material import Material
 from objects.form import Form, StaticForm
 from objects.path import Path, CirclePath
@@ -41,7 +41,7 @@ class CircleForm(StaticForm):
     def __init__(self, pos: Vec, radius, material: Material, 
                  color: Tuple, min_angle: float = 0, max_angle: float = 2*math.pi, 
                  resolution=100, ball_radius=50, name="circle", 
-                 on_collision: Optional[str] = None):
+                 on_collision: List[str] = []):
         """
         Initialize the CircleForm.
 
@@ -127,7 +127,7 @@ class CircleForm(StaticForm):
         return self.name
 
     def rotate(self, angle: float, center: Vec[float]) -> CircleForm:
-        angle = -angle
+        #angle = -angle
         new_pos = self.pos.rotate(angle, center)
         return CircleForm(new_pos, self.radius, self.material, self.color, self.min_angle+angle, self.max_angle+angle, name=self.name)
 
@@ -140,8 +140,8 @@ class CircleForm(StaticForm):
             "params": {
                 "pos": self.pos.get_json(),
                 "radius": self.radius,
-                "min_angle": self.min_angle,
-                "max_angle": self.max_angle,
+                "min_angle": rad_to_deg(self.min_angle),
+                "max_angle": rad_to_deg(self.max_angle),
                 "name": self.name,
                 "material": self.material.get_json(),
                 "color": self.color

@@ -4,6 +4,7 @@ import math
 import time
 from typing import Any, Callable, Dict, List, Set, Tuple
 import pygame
+from ballang_vars import VarHandler
 
 from collision.coll_thread import ChangeInfo, CollThread
 from math_utils.vec import Vec
@@ -47,12 +48,16 @@ def make_flipper(line: LineForm, rot_point: Vec, up_angle: float, down_angle: fl
 class GameState:
     forms: FormHandler
     balls: List[Ball]
-    ballang_vars: Dict[str, Any]
+    ballang_vars: VarHandler
 
-    def __init__(self, forms: FormHandler, balls: List[Ball], ballang_vars: Dict[str, Any]):
+    is_end: bool
+
+    def __init__(self, forms: FormHandler, balls: List[Ball], ballang_vars: VarHandler, is_end: bool = False):
         self.forms = forms
         self.balls = balls
         self.ballang_vars = ballang_vars
+
+        self.is_end = is_end
     
     def draw(self, screen, time):
         self.forms.draw(screen, (0, 255, 0), time)
@@ -70,7 +75,7 @@ class PinballGame:
     on_update: Callable[[PinballGame], None]
     n_colls: int
 
-    def __init__(self, start_state: GameState, on_keydown = None, on_update = None, speed: float = 8.0, coll_fns: Dict[str, Callable[[GameState, float, int, ChangeInfo], None]] = {}):
+    def __init__(self, start_state: GameState, on_keydown = None, on_update = None, on_init = None ,speed: float = 8.0, coll_fns: Dict[str, Callable[[GameState, float, int, ChangeInfo], None]] = {}):
         if on_keydown is None:
             on_keydown = lambda key, game: None
         if on_update is None:
@@ -84,13 +89,15 @@ class PinballGame:
         self.n_colls = 0
         self.speed = speed
         self.curr_pressed = set()
+        if on_init is not None:
+            on_init(self)
 
     def calc_time(self):
         return self.last_time + (time.time_ns() - self.start_time)/(10**(self.speed))
 
     def handle_keydown(self, key: int):
         self.curr_pressed.add(key)
-        self.on_keydown(key, self)
+        self.on_keydown(self, key)
 
     def handle_keyup(self, key):
         self.curr_pressed.remove(key)
@@ -114,16 +121,6 @@ class PinballGame:
                 self.handle_keydown(event.key)
             elif event.type == pygame.KEYUP:
                 self.handle_keyup(event.key)
-        self.on_update(self)
-        e = False
-        if self.curr_state.ballang_vars["flipper_moving_up"]:
-            #raise Exception("flipper moving up")
-            e = True
-
-        if pygame.K_s in self.curr_pressed:
-            self.speed += 0.01
-        if pygame.K_f in self.curr_pressed:
-            self.speed -= 0.01
 
             # coll_process.join()
         # fill the screen with a color to wipe away anything from last frame
@@ -132,8 +129,11 @@ class PinballGame:
         passed = self.calc_time()
         new_state = self.coll_thread.check_coll(passed)
         lagging_behind = None
+        self.on_update(self, screen)
         if new_state is not None:
             self.curr_state, n_looped = new_state
             self.n_colls += n_looped
+        if self.curr_state.is_end:
+            return False
         return True
         # flip() the display to put your work on screen

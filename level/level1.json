@@ -6,7 +6,28 @@
         },
         "background_img": "src/backgrounds/background.png",
         "game_speed": 8.5,
-        "ball_radius": 50
+        "ball_radius": 20
+    },
+    "on_init": {
+        "type": "BallangString",
+        "params": {
+            "code": "def on_init(){set_global(\"flipper_moving_up\", 1==0, 0.0);}",
+            "func_name": "on_init"
+        }
+    },
+    "on_update": {
+        "type": "BallangFile",
+        "params": {
+            "path": "src/on_update.balls",
+            "name": "on_update"
+        }
+    },
+    "on_keydown": {
+        "type": "BallangFile",
+        "params": {
+            "path": "src/on_keydown.balls",
+            "name": "on_keydown"
+        }
     },
     "forms": [
         {
@@ -26,13 +47,57 @@
                     "factor_par": 0.5,
                     "min_ort": 20,
                     "min_par": 5
-                },
-                "effects": {
-                    "oncollide": {
-                        "type": "BallangEffect",
-                        "path": "src/effects/line_collision.balls"
-                    }
                 }
+            }
+        },
+        {
+            "type": "InfRotatingForm",
+            "params": {
+                "form": {
+                    "type": "PolygonForm",
+                    "params": {
+                        "points": [
+                            {
+                                "x": 110.00000000000001,
+                                "y": 110.00000000000001
+                            },
+                            {
+                                "x": 220.00000000000003,
+                                "y": 110.00000000000001
+                            },
+                            {
+                                "x": 330.0,
+                                "y": 165.0
+                            },
+                            {
+                                "x": 220.00000000000003,
+                                "y": 220.00000000000003
+                            },
+                            {
+                                "x": 330.0,
+                                "y": 440.00000000000006
+                            },
+                            {
+                                "x": 110.00000000000001,
+                                "y": 220.00000000000003
+                            }
+                        ],
+                        "name": "polygon",
+                        "material": {
+                            "factor_ort": 0.8,
+                            "factor_par": 0.95,
+                            "min_ort": 20,
+                            "min_par": 1
+                        },
+                        "self_coll_direction": "ALLOW_FROM_OUTSIDE",
+                        "line_coll_direction": "ALLOW_FROM_OUTSIDE"
+                    }
+                },
+                "rot_point": {
+                    "x": 220.00000000000003,
+                    "y": 220.00000000000003
+                },
+                "period": 100
             }
         },
         {
@@ -57,62 +122,176 @@
                     }
                 ],
                 "color": "#000000",
-                "self_coll_direction":"ALLOW_FROM_INSIDE",
-                "line_coll_direction":"ALLOW_FROM_OUTSIDE",
+                "self_coll_direction": "ALLOW_FROM_INSIDE",
+                "line_coll_direction": "ALLOW_FROM_OUTSIDE",
+                "filled": false,
                 "material": {
                     "factor_ort": 0.5,
                     "factor_par": 0.5,
                     "min_ort": 20,
                     "min_par": 5
                 },
-                "effects": {
-                    "oncollide": {
-                        "type": "BallangEffect",
-                        "path": "src/effects/polygon_collision.balls"
-                    }
-                }
+                "effects": [
+                ]
             }
         }
     ],
     "namedForms": {
-        "flipper_links": {
-            "type": "RotatingForm",
+        "flipper": {
+            "type": "LineForm",
             "params": {
-                "center": {
-                    "x": 300,
-                    "y": 400
+                "pos1": {
+                    "x": 100.0,
+                    "y": 720.0
                 },
-                "start_angle": 0,
-                "end_angle": 2,
-                "angle_speed": 6,
-                "form": {
+                "pos2": {
+                    "x": 450.0,
+                    "y": 720.0
+                },
+                "name": "line",
+                "material": {
+                    "factor_ort": 1.1,
+                    "factor_par": 1.0,
+                    "min_ort": 40,
+                    "min_par": 0.0
+                }
+            }
+        }
+    },
+    "hiddenForms": {
+        "flipper_moving_up": {
+            "type": "TempForm",
+            "params": {
+                "start_form": {
+                    "type": "RotateForm",
+                    "params": {
+                        "form": {
+                            "type": "LineForm",
+                            "params": {
+                                "pos1": {
+                                    "x": 100.0,
+                                    "y": 720.0
+                                },
+                                "pos2": {
+                                    "x": 450.0,
+                                    "y": 720.0
+                                },
+                                "name": "line",
+                                "material": {
+                                    "factor_ort": 1.1,
+                                    "factor_par": 1.0,
+                                    "min_ort": 40,
+                                    "min_par": 0.0
+                                }
+                            }
+                        },
+                        "center": {
+                            "x": 100,
+                            "y": 720
+                        },
+                        "start_angle": -0.0,
+                        "angle_speed": -19.098593171027442,
+                        "start_time": 0.0,
+                        "name": "rotateform"
+                    }
+                },
+                "form_duration": 3.0,
+                "end_form": {
                     "type": "LineForm",
                     "params": {
                         "pos1": {
-                            "x": 300,
-                            "y": 400
+                            "x": 100.0,
+                            "y": 720.0
                         },
                         "pos2": {
-                            "x": 500,
-                            "y": 500
+                            "x": 289.10580705384893,
+                            "y": 425.4851553172362
                         },
-                        "color": "#000000",
+                        "name": "line",
                         "material": {
-                            "factor_ort": 0.5,
-                            "factor_par": 0.5,
-                            "min_ort": 20,
-                            "min_par": 5
-                        },
-                        "effects": {
-                            "oncollide": {
-                                "type": "BallangEffect",
-                                "path": "src/effects/line_collision.balls"
+                            "factor_ort": 1.1,
+                            "factor_par": 1.0,
+                            "min_ort": 40,
+                            "min_par": 0.0
+                        }
+                    }
+                }
+            }
+        },
+        "flipper_moving_down": {
+            "type": "TempForm",
+            "params": {
+                "start_form": {
+                    "type": "RotateForm",
+                    "params": {
+                        "form": {
+                            "type": "LineForm",
+                            "params": {
+                                "pos1": {
+                                    "x": 100.0,
+                                    "y": 720.0
+                                },
+                                "pos2": {
+                                    "x": 289.10580705384893,
+                                    "y": 425.4851553172362
+                                },
+                                "name": "line",
+                                "material": {
+                                    "factor_ort": 1.1,
+                                    "factor_par": 1.0,
+                                    "min_ort": 40,
+                                    "min_par": 0.0
+                                }
                             }
+                        },
+                        "center": {
+                            "x": 100,
+                            "y": 720
+                        },
+                        "start_angle": -0.0,
+                        "angle_speed": 5.729577951308232,
+                        "start_time": 0.0,
+                        "name": "rotateform"
+                    }
+                },
+                "form_duration": 10.0,
+                "end_form": {
+                    "type": "LineForm",
+                    "params": {
+                        "pos1": {
+                            "x": 100.0,
+                            "y": 720.0
+                        },
+                        "pos2": {
+                            "x": 450.0,
+                            "y": 720.0
+                        },
+                        "name": "line",
+                        "material": {
+                            "factor_ort": 1.1,
+                            "factor_par": 1.0,
+                            "min_ort": 40,
+                            "min_par": 0.0
                         }
                     }
                 }
             }
         }
     },
-    "hiddenForms": {}
+    "balls": [
+        {
+            "pos": {
+                "x": 100,
+                "y": 100
+            },
+            "vel": {
+                "x": 100,
+                "y": 0
+            },
+            "acc": {
+                "x": 0,
+                "y": 9.8
+            }
+        }
+    ]
 }

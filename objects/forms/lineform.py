@@ -34,7 +34,7 @@ class LineForm(StaticForm):
 
     def __init__(self, pos1: Vec[float], pos2: Vec[float], 
                  ball_radius: float, material: Material, 
-                 name="line",on_collision: Optional[str] = None):
+                 name="line",on_collision: List[str] = []):
         """
         Initialize the LineForm.
 

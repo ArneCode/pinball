@@ -17,6 +17,15 @@ from math_utils.angle import check_angle_between
 class Path(ABC):
     @abstractmethod
     def get_normal(self, pos: Vec) -> Vec:
+        """
+        Returns the normal vector at the given position on the path.
+
+        Parameters:
+        - pos: A Vec object representing the position on the path.
+
+        Returns:
+        - The normal vector at the given position.
+        """
         pass
 
     @abstractmethod

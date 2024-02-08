@@ -13,7 +13,7 @@ class Polynom(NpPoly):
     It used to be implemented by myself, but I switched to numpy.polynomial.Polynomial because it is faster.
     To those interested, the old implementation is still in the comments.
     """
-    def find_roots(self, min_x: float = 0.0, filter_fn: Optional[Callable[[float], bool]] = None, sort: bool = True) -> List[float]:
+    def find_roots(self, min_x: float = 0.001, filter_fn: Optional[Callable[[float], bool]] = None, sort: bool = True) -> List[float]:
         """
         find roots using numpy
 

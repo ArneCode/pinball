@@ -50,6 +50,7 @@ class PeriodicForm(Form):
         self.forms = forms
         self.total_duration = 0
         for form, duration in forms:
+            print(f"form: {form}, duration: {duration}")
             self.total_duration += duration
 
         # make an outline of the form
@@ -166,9 +167,12 @@ class PeriodicForm(Form):
                 if coll is None:
                     # TODO: find a better way to do this
                     t = mov_end + 0.2
+                    _, new_mov_start, _ = self.get_move_info(t)
+                    assert new_mov_start != mov_start, "the ugly way didn't work"
+
                     continue
                 abs_coll_t = coll.get_coll_t() + new_ball.start_t + mov_start
-                if abs_coll_t > tmax:
+                if abs_coll_t > tmax or abs_coll_t > mov_end:
                     break
                 rel_coll_t = abs_coll_t - ball.start_t
                 return TimedCollision(coll, rel_coll_t)

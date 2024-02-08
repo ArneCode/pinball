@@ -3,6 +3,7 @@ import copy
 import math
 import time
 from typing import Any, Callable, Dict, List, Optional, Tuple
+from ballang_vars import VarHandler
 #from game import GameState
 
 from objects.ball import Ball
@@ -59,7 +60,7 @@ def precalc_colls(in_queue: Queue[Any], out_queues: List[Queue[GameStateChange]]
             remove_dup = False
             i = 0
             continue
-        if curr_out_queue.qsize() > 1000:
+        if curr_out_queue.qsize() > 1000 or game_state.is_end:
             if len(used_queues) > 0:
                 print("emptying prev queue")
                 empty_queue(out_queues[used_queues.pop(0)])
@@ -106,7 +107,7 @@ def precalc_colls(in_queue: Queue[Any], out_queues: List[Queue[GameStateChange]]
         if log:
             print(f"found coll at t: {first_coll_t}")
         ball = game_state.balls[first_coll_ball]
-        other: Form = coll.get_obj_form()
+        other: StaticForm = coll.get_obj_form()
         dir = coll.get_result_dir()
         if other in ball_inner_forms:
             print(f"ball-to-ball: {first_coll_t}")
@@ -115,19 +116,24 @@ def precalc_colls(in_queue: Queue[Any], out_queues: List[Queue[GameStateChange]]
             other_ball = other_ball.with_start_t(first_coll_t).with_start_pos(
                 other_ball.get_pos(first_coll_t)).with_vel(dir*(-1))
             game_state.balls[other_ball_i] = other_ball
-        else:
-            assert isinstance(other, StaticForm)
-            on_collision = other.on_collision
-            if on_collision is not None:
-                form_functions[on_collision](game_state, first_coll_t, first_coll_ball, change_info)
+            #assert isinstance(other, StaticForm)
+        ball = ball.with_start_t(first_coll_t).with_start_pos(
+        ball.get_pos(first_coll_t)).with_vel(dir)
+        # print(f"ball_start_t: {ball.start_t}, first_coll_t: {first_coll_t}, other: {other}")
+        game_state.balls[first_coll_ball] = ball
         change_info.set_balls_changed()
+
+        on_collision = other.on_collision
+
+        for fn_name in on_collision:
+            #print(f"collision, executing {fn_name}")
+            form_functions[fn_name](game_state, first_coll_t, first_coll_ball, change_info)
         # print(f"new ball pos: {ball.get_pos(coll.time + ball.start_t)}")
         if log:
             print(f"ball-to-form: {first_coll_t}")
-        ball = ball.with_start_t(first_coll_t).with_start_pos(
-            ball.get_pos(first_coll_t)).with_vel(dir)
-        # print(f"ball_start_t: {ball.start_t}, first_coll_t: {first_coll_t}, other: {other}")
-        game_state.balls[first_coll_ball] = ball
+        if len(game_state.balls) == 0:
+            print("no balls left")
+            curr_out_queue.put(GameStateChange(first_coll_t, None, None, None, True))
         # if first_coll_t < 50 or True:
         #print(f"first_coll_t: {first_coll_t}")
         change = GameStateChange(first_coll_t, None, None, None)
@@ -151,13 +157,16 @@ class GameStateChange:
     change_t: float
     new_balls: Optional[List[Ball]]
     new_forms: Optional[FormHandler]
-    new_globals: Optional[Dict[str, Any]]
+    new_globals: Optional[VarHandler]
 
-    def __init__(self, change_t: float, new_balls: Optional[List[Ball]], new_forms: Optional[FormHandler], new_globals: Optional[Dict[str, Any]]):
+    is_end: bool
+
+    def __init__(self, change_t: float, new_balls: Optional[List[Ball]]=None, new_forms: Optional[FormHandler]=None, new_globals: Optional[Dict[str, Any]]=None, is_end: bool = False):
         self.change_t = change_t
         self.new_balls = new_balls
         self.new_forms = new_forms
         self.new_globals = new_globals
+        self.is_end = is_end
 class ChangeInfo:
     balls_changed: bool
     forms_changed: bool
@@ -209,7 +218,9 @@ class CollThread:
         if c.new_forms is not None:
             self.state.forms = c.new_forms
         if c.new_globals is not None:
-            self.state.ballang_vars = c.new_globals
+            self.state.ballang_vars.merge(c.new_globals)
+        if c.is_end:
+            self.state.is_end = True
     def check_coll(self, time: float, break_after: Optional[int] = 5) -> Optional[Tuple[Any,int]]:
         looped = False
         n_looped = 0
@@ -221,7 +232,8 @@ class CollThread:
                 break
             n_looped += 1
             self.apply_next_change()
-            self.next_change = self.get_curr_queue().get()
+            if not self.state.is_end:
+                self.next_change = self.get_curr_queue().get()
             looped = True
         if looped:
             return self.state, n_looped
@@ -237,6 +249,7 @@ class CollThread:
         return None
 
     def restart(self, state, time: float):
+        self.check_coll(time, None)
         from game import GameState
         state: GameState = state
         # ball = ball.from_time(curr_t)
