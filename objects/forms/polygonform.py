@@ -68,7 +68,7 @@ class PolygonForm(StaticForm):
     def __init__(self, points: List[Vec[float]],
                  material: Material, self_coll_direction: CollDirection = CollDirection.ALLOW_FROM_OUTSIDE,
                  line_coll_direction: CollDirection = CollDirection.ALLOW_FROM_OUTSIDE, ball_radius: float = 50, name="polygon", edge_normals: Optional[List[Vec[float]]] = None,
-                  on_collision: List[str] = [], filled: bool = False):
+                  on_collision: List[str] = [], filled: bool = False, do_reflect: bool = True):
         """
         Create a new polygon form
         
@@ -100,12 +100,12 @@ class PolygonForm(StaticForm):
         elif self_coll_direction == CollDirection.ALLOW_FROM_OUTSIDE:
             self.paths = self.make_paths(ball_radius, 1)
         else:
-            self.paths = self.make_paths(ball_radius) + self.make_paths(50, -1)
+            self.paths = self.make_paths(ball_radius) + self.make_paths(ball_radius, -1)
         self.point_tuples = []
 
         for point in points:
             self.point_tuples.append((point.x, point.y))
-        super().__init__(self.paths, on_collision=on_collision)
+        super().__init__(self.paths, on_collision=on_collision, do_reflect=do_reflect)
 
     def find_edge_normals(self):
         """

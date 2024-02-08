@@ -134,6 +134,50 @@
                 "effects": [
                 ]
             }
+        },
+        {
+            "type": "PolygonForm",
+            "params": {
+                "points": [
+                    {
+                        "x": 600,
+                        "y": 0
+                    },
+                    {
+                        "x": 1280,
+                        "y": 0
+                    },
+                    {
+                        "x": 1280,
+                        "y": 720
+                    },
+                    {
+                        "x": 600,
+                        "y": 720
+                    }
+                ],
+                "color": "#000000",
+                "self_coll_direction": "ALLOW_ALL",
+                "line_coll_direction": "ALLOW_FROM_OUTSIDE",
+                "filled": false,
+                "do_reflect": false,
+                "overwrite_ball_radius": 1,
+                "material": {
+                    "factor_ort": 0.5,
+                    "factor_par": 0.5,
+                    "min_ort": 20,
+                    "min_par": 5
+                },
+                "effects": [
+                    {
+                        "type": "BallangFile",
+                        "params": {
+                            "path": "src/force_field.balls",
+                            "name": "on_collide"
+                        }
+                    }
+                ]
+            }
         }
     ],
     "namedForms": {

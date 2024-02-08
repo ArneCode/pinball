@@ -18,7 +18,8 @@ class VarHandler:
         if name in self.vars:
             return self.vars[name][0]
         return None
-    
+    def is_defined(self, name: str) -> bool:
+        return name in self.vars
     def merge(self, other: "VarHandler"):
         for name, (value, time) in other.vars.items():
             self.set_var(name, value, time)

@@ -4,6 +4,7 @@ from typing import Dict, List, Set
 import pygame
 from collision.coll_thread import ChangeInfo
 from game import GameState, PinballGame
+from math_utils.vec import Vec
 from objects.ball import Ball
 from ballang import parse_file
 from ballang.eval_visitor import Function, Value
@@ -15,7 +16,8 @@ def get_state_functions(state: GameState, change_info: ChangeInfo) -> Dict:
     def read_global(name: str) -> Value:
         print(f"ballang_vars: {state.ballang_vars}")
         return state.ballang_vars.get_var(name)
-
+    def is_defined(name: str) -> bool:
+        return state.ballang_vars.is_defined(name)
     def set_global(name: str, value: Value, time: float) -> None:
         state.ballang_vars.set_var(name, value, time)
         change_info.set_globals_changed()
@@ -53,6 +55,23 @@ def get_state_functions(state: GameState, change_info: ChangeInfo) -> Dict:
                 change_info.set_balls_changed()
                 return
         raise Exception(f"ball with id {ball_id} not found")
+    
+    def set_ball_acc(ball_id: int, acc: Vec) -> None:
+        state.balls = state.balls.copy()
+        state.balls[ball_id].acc = acc
+        change_info.set_balls_changed()
+    def get_ball_acc(ball_id: int) -> Vec:
+        return state.balls[ball_id].acc
+    
+    def increase_ball_acc(ball_id: int, acc: Vec) -> None:
+        state.balls = state.balls.copy()
+        state.balls[ball_id].acc += acc
+        change_info.set_balls_changed()
+    
+    def decrease_ball_acc(ball_id: int, acc: Vec) -> None:
+        state.balls = state.balls.copy()
+        state.balls[ball_id].acc -= acc
+        change_info.set_balls_changed()
 
     def is_moving(name: str, time: float = 0.0):
 
@@ -61,11 +80,18 @@ def get_state_functions(state: GameState, change_info: ChangeInfo) -> Dict:
         return form.is_moving(time)
     def to_str(val: Value):
         return str(val)
+    def get_vec(x: float,y: float):
+        return Vec(x,y)
 
     funcs = {
         "read_global": read_global,
+        "is_defined": is_defined,
         "set_global": set_global,
         "remove_ball": remove_ball,
+        "set_ball_acc": set_ball_acc,
+        "get_ball_acc": get_ball_acc,
+        "increase_ball_acc": increase_ball_acc,
+        "decrease_ball_acc": decrease_ball_acc,
         "print": print,
         "remove_named_form": remove_named_form,
         "hide_named_form": hide_named_form,
@@ -73,6 +99,7 @@ def get_state_functions(state: GameState, change_info: ChangeInfo) -> Dict:
         "spawn_form_timed": spawn_form_timed,
         "is_moving": is_moving,
         "str": to_str,
+        "Vec": get_vec,
     }
     return funcs
 

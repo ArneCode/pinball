@@ -34,7 +34,7 @@ class LineForm(StaticForm):
 
     def __init__(self, pos1: Vec[float], pos2: Vec[float], 
                  ball_radius: float, material: Material, 
-                 name="line",on_collision: List[str] = []):
+                 name="line",on_collision: List[str] = [], do_reflect: bool = True):
         """
         Initialize the LineForm.
 
@@ -66,7 +66,7 @@ class LineForm(StaticForm):
         self.paths.append(CirclePath(pos2, ball_radius, self,
                           angle-math.pi/2, angle+math.pi/2, CollDirection.ALLOW_FROM_OUTSIDE))
         # giving the paths to the Form class so that it can handle collisions
-        super().__init__(self.paths, on_collision=on_collision)
+        super().__init__(self.paths, on_collision=on_collision, do_reflect=do_reflect)
 
     def draw(self, screen, color, time: float):
         """

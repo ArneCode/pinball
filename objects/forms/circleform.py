@@ -41,7 +41,7 @@ class CircleForm(StaticForm):
     def __init__(self, pos: Vec, radius, material: Material, 
                  color: Tuple, min_angle: float = 0, max_angle: float = 2*math.pi, 
                  resolution=100, ball_radius=50, name="circle", 
-                 on_collision: List[str] = []):
+                 on_collision: List[str] = [], do_reflect: bool = True):
         """
         Initialize the CircleForm.
 
@@ -109,7 +109,7 @@ class CircleForm(StaticForm):
 
             self.points.append((x, y))
         # giving the paths to the Form class so that it can handle collisions
-        super().__init__(self.paths, on_collision=on_collision)
+        super().__init__(self.paths, on_collision=on_collision, do_reflect=do_reflect)
 
     def draw(self, screen, color, time: float):
         pygame.draw.lines(screen, color, False, self.points, width=3)

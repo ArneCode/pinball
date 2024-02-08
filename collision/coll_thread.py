@@ -65,8 +65,6 @@ def precalc_colls(in_queue: Queue[Any], out_queues: List[Queue[GameStateChange]]
                 print("emptying prev queue")
                 empty_queue(out_queues[used_queues.pop(0)])
             continue
-        # print(f"running {random.randint(0, 100)}")
-       # print(f"i: {i}")
 
         first_coll = None
         first_coll_t = float("inf")
@@ -108,19 +106,25 @@ def precalc_colls(in_queue: Queue[Any], out_queues: List[Queue[GameStateChange]]
             print(f"found coll at t: {first_coll_t}")
         ball = game_state.balls[first_coll_ball]
         other: StaticForm = coll.get_obj_form()
-        dir = coll.get_result_dir()
-        if other in ball_inner_forms:
-            print(f"ball-to-ball: {first_coll_t}")
-            other_ball_i = ball_inner_forms.index(other)
-            other_ball = game_state.balls[other_ball_i]
-            other_ball = other_ball.with_start_t(first_coll_t).with_start_pos(
-                other_ball.get_pos(first_coll_t)).with_vel(dir*(-1))
-            game_state.balls[other_ball_i] = other_ball
-            #assert isinstance(other, StaticForm)
-        ball = ball.with_start_t(first_coll_t).with_start_pos(
-        ball.get_pos(first_coll_t)).with_vel(dir)
-        # print(f"ball_start_t: {ball.start_t}, first_coll_t: {first_coll_t}, other: {other}")
-        game_state.balls[first_coll_ball] = ball
+        if other.do_reflect:
+            dir = coll.get_result_dir()
+            if other in ball_inner_forms:
+                print(f"ball-to-ball: {first_coll_t}")
+                other_ball_i = ball_inner_forms.index(other)
+                other_ball = game_state.balls[other_ball_i]
+                other_ball = other_ball.with_start_t(first_coll_t).with_start_pos(
+                    other_ball.get_pos(first_coll_t)).with_vel(dir*(-1))
+                game_state.balls[other_ball_i] = other_ball
+                #assert isinstance(other, StaticForm)
+            ball = ball.with_start_t(first_coll_t).with_start_pos(
+            ball.get_pos(first_coll_t)).with_vel(dir)
+            # print(f"ball_start_t: {ball.start_t}, first_coll_t: {first_coll_t}, other: {other}")
+            game_state.balls[first_coll_ball] = ball
+        else:
+            vel = ball.get_vel(first_coll_t)
+            ball = ball.with_start_t(first_coll_t).with_start_pos(
+                ball.get_pos(first_coll_t)).with_vel(vel)
+            game_state.balls[first_coll_ball] = ball
         change_info.set_balls_changed()
 
         on_collision = other.on_collision
@@ -134,8 +138,6 @@ def precalc_colls(in_queue: Queue[Any], out_queues: List[Queue[GameStateChange]]
         if len(game_state.balls) == 0:
             print("no balls left")
             curr_out_queue.put(GameStateChange(first_coll_t, None, None, None, True))
-        # if first_coll_t < 50 or True:
-        #print(f"first_coll_t: {first_coll_t}")
         change = GameStateChange(first_coll_t, None, None, None)
         if change_info.balls_changed:
             change.new_balls = game_state.balls.copy()
@@ -146,9 +148,6 @@ def precalc_colls(in_queue: Queue[Any], out_queues: List[Queue[GameStateChange]]
         curr_out_queue.put(change)
         i += 1
         end_time = time.time()
-        # lock.release()
-        # print(f"c thread: lock released, took {end_time - start_time} seconds")
-        # print(f"calc took {end_time - start_time} seconds")
     print("exit")
     raise SystemExit
 
@@ -225,7 +224,6 @@ class CollThread:
         looped = False
         n_looped = 0
         lagging_behind = None
-        # print(f"curr queue len: {self.get_curr_queue().qsize()}")
         while time >= self.next_change.change_t:
             if break_after is not None and n_looped >= break_after:
                 print("breaking")
@@ -237,37 +235,18 @@ class CollThread:
             looped = True
         if looped:
             return self.state, n_looped
-        # if looped and time - self.ball.start_t > 10:
-        #     print("lagging behind")
-        #     if not self.has_read_lag:
-        #         self.read_lag_evt.set()
-        #         self.has_read_lag = True
-
-        # if looped:
-        #         #lagging_behind = time
-        #     return self.balls, self.form_handler, lagging_behind
         return None
 
     def restart(self, state, time: float):
         self.check_coll(time, None)
         from game import GameState
         state: GameState = state
-        # ball = ball.from_time(curr_t)
-        # in_queue.put((ball, curr_forms))
         self.state = state
-        # for i in range(len(self.balls)):
-        #     self.balls[i] = self.balls[i].from_time(time)
         for i in range(len(self.state.balls)):
             self.state.balls[i] = self.state.balls[i].from_time(time)
-        # self.ball = self.ball.from_time(time)
-        print("putting in queue")
         self.in_queue.put(self.state)
-        print("put in queue")
         self.curr_queue_n = (self.curr_queue_n + 1) % len(self.out_queues)
-        print("getting next")
         self.next_change = self.get_curr_queue().get()
-        print("got next")
-        # print(f"restart, next_coll_t: {self.next_coll_t + self.ball.start_t}, curr_t: {time}, diff: {self.next_coll_t + self.ball.start_t - time}")
 
     def stop(self):
         self.stop_evt.set()

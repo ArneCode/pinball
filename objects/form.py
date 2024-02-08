@@ -87,10 +87,12 @@ class Form(ABC):
 class StaticForm(Form):
     paths: List[Path]
     on_collision: List[str]
+    do_reflect: bool
 
-    def __init__(self, paths: List[Path], on_collision: List[str]):
+    def __init__(self, paths: List[Path], on_collision: List[str], do_reflect: bool = True):
         self.paths = paths
         self.on_collision = on_collision
+        self.do_reflect = do_reflect
 
     def find_collision(self, ball: Ball):
         """

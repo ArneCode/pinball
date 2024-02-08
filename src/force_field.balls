@@ -1,0 +1,24 @@
+def on_collide(coll_t, ball_id){
+    if !is_defined("inside_field") {
+        set_global("inside_field", 1==0, coll_t);
+        set_global("last_coll_t", 0.0, coll_t);
+    }
+    let dt = coll_t - read_global("last_coll_t");
+    if dt < 0.001{
+        return;
+    }
+    set_global("last_coll_t", coll_t, coll_t);
+
+    let inside_field = read_global("inside_field");
+    inside_field = !inside_field;
+    set_global("inside_field", inside_field, coll_t);
+    if inside_field {
+        let ball_acc = get_ball_acc(ball_id);
+        let new_acc = Vec(-9.81,0.0);
+        set_ball_acc(ball_id, new_acc);
+        set_global("prev_ball_acc", ball_acc, coll_t);
+    }else {
+        let prev_ball_acc = read_global("prev_ball_acc");
+        set_ball_acc(ball_id, prev_ball_acc);
+    }
+}

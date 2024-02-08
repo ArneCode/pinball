@@ -197,7 +197,15 @@ class World:
             filled = polygon_dict["filled"]
         else:
             filled = False
-        return PolygonForm(points, material=material, self_coll_direction=self_coll_direction, line_coll_direction=line_coll_direction, on_collision=on_collision, ball_radius=self.get_global("ball_radius"), filled=filled)
+        if "do_reflect" in polygon_dict.keys():
+            do_reflect = polygon_dict["do_reflect"]
+        else:
+            do_reflect = True
+        if "overwrite_ball_radius" in polygon_dict.keys():
+            ball_radius = polygon_dict["overwrite_ball_radius"]
+        else:
+            ball_radius = self.get_global("ball_radius")
+        return PolygonForm(points, material=material, self_coll_direction=self_coll_direction, line_coll_direction=line_coll_direction, on_collision=on_collision, ball_radius=ball_radius, filled=filled, do_reflect=do_reflect)
     def parse_temp_form(self, temp_form_dict):
         start_form = self.parse_form(temp_form_dict["start_form"])
         form_duration = temp_form_dict["form_duration"]
