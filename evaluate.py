@@ -5,6 +5,9 @@ from .node import CodeFileNode
 
 
 def get_ballang_function(file: str, entry_function: str) -> Function:
+    """
+    Parse the given file and return the function with the given name
+    """
     parsed = parse(file)
     assert isinstance(parsed, CodeFileNode)
     print_fn = PythonFunction(lambda args: print(*args))
@@ -21,6 +24,9 @@ def get_ballang_function(file: str, entry_function: str) -> Function:
     assert isinstance(func, Function)
     return func
 def parse_file(file: str, global_functions: dict) -> Scope:
+    """
+    Parse the given file and return the global scope (with the global functions added to it)
+    """
     fns: Dict[str, Value] = {}
     for name, fn in global_functions.items():
         fns[name] = PythonFunction(fn, name)
@@ -32,6 +38,9 @@ def parse_file(file: str, global_functions: dict) -> Scope:
     return global_scope
 
 def evaluate(file: str, entry_function: str):
+    """
+    Evaluate the given file with the given entry function
+    """
     func = get_ballang_function(file, entry_function)
     func.call([])
 

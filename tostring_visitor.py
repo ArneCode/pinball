@@ -1,3 +1,6 @@
+"""
+This module contains the ToStringVisitor class, which is a visitor class that converts a Ballang AST into a string representation.
+"""
 from __future__ import annotations
 from typing import Dict, Union
 from .node import CodeFileNode, FuncArgNode, FunctionDefNode, NodeVisitor, ReturnNode, StringNode, TwoSideOpNode, Node, CodeBlockNode, IfNode, UnaryOpNode, WordNode, SymbolNode, NumberNode, VarNode, VarDefNode, AssignNode, FuncCallNode, whileNode
@@ -5,6 +8,15 @@ from .node import CodeFileNode, FuncArgNode, FunctionDefNode, NodeVisitor, Retur
 # walks the tree and makes string representation of it
 
 class ToStringVisitor(NodeVisitor[str]):
+    """
+    A visitor class that converts a Ballang AST into a string representation.
+
+    This class implements the NodeVisitor interface and provides methods to visit different types of nodes in the AST.
+    Each visit method returns a string representation of the visited node.
+
+    Attributes:
+        indent (int): The current indentation level for formatting the output.
+    """
     indent: int = 0
 
     def __init__(self, indent: int = 0):

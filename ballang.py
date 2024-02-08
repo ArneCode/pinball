@@ -1,138 +1,67 @@
+"""
+Defines the grammar for the Ballang language and provides a function to parse a string of Ballang code into a syntax tree.
+
+The grammar is defined using the `grammar` module, which provides a way to define a context-free grammars.
+"""
+
 from abc import ABC
 from typing import Dict, List, Optional, TypeVar, cast
 
-from .grammar import AnyNumber, AnyString, AnyWord, Capture, Labeled, Maybe, Multiple, Sequence, Symbol, SymbolParser, Word
-from .lexer import TokenStream, lex
+from .abstract.grammar import AnyNumber, AnyString, AnyWord, Capture, Labeled, Maybe, Multiple, Sequence, Symbol, SymbolParser, Word
+from .abstract.lexer import TokenStream, lex
 from .node import CodeFileNode, FuncArgNode, FunctionDefNode, Node, NumberNode, ReturnNode, StringNode, SymbolNode, TwoSideOpNode, UnaryOpNode,  VarNode, VarDefNode, AssignNode, FuncCallNode, CodeBlockNode, IfNode, WordNode, whileNode
 from .tostring_visitor import ToStringVisitor
+from .capture import *
 
-
-def parse_op(symbol: str, left: Node, right: Node):
-    assert symbol in ["+", "-", "*", "/", "<", ">", "==",
-                      "!=", "<=", ">=", "&&", "||"], f"unknown symbol {symbol}"
-    return TwoSideOpNode(symbol, left, right)
-   # raise Exception("unknown symbol")
-
-
-def twoside_op_capture(x: Dict[str, Node]) -> Node:
-    if "right" in x:
-        symbol = x["symbol"]
-        assert isinstance(symbol, SymbolNode)
-        return parse_op(symbol.symbol, x["left"], x["right"])
-    else:
-        return x["left"]
-
-
-def unary_op_capture(x: Dict[str, Node]) -> Node:
-    sign = x["sign"]
-    assert isinstance(sign, SymbolNode)
-    return UnaryOpNode(sign.symbol, x["node"])
-
-
-NodeT = TypeVar("NodeT")
-
-
-def extract_multiple(x: Dict[str, Node], key: str) -> List[Node]:
-    i = 0
-    items = []
-    while f"{key}{i}" in x:
-        items.append(x[f"{key}{i}"])
-        i += 1
-
-    return items
-
-
-def block_capture(x: Dict[str, Node]) -> CodeBlockNode:
-    statements = extract_multiple(x, "statement")
-    return CodeBlockNode(statements)
-
-
-def if_capture(x: Dict[str, Node]) -> IfNode:
-    condition = x["condition"]
-    then_block = x["then_block"]
-    assert isinstance(then_block, CodeBlockNode)
-    elif_conds = extract_multiple(x, "elif_cond")
-    elif_blocks = extract_multiple(x, "elif_block")
-    for block in elif_blocks:
-        assert isinstance(block, CodeBlockNode)
-    if "else_block" in x:
-        else_block = x["else_block"]
-        assert isinstance(else_block, CodeBlockNode)
-        return IfNode(condition, then_block, elif_conds, cast(List[CodeBlockNode], elif_blocks), else_block)
-
-    return IfNode(condition, then_block, elif_conds, cast(List[CodeBlockNode], elif_blocks), None)
-
-
-def var_capture(x: Dict[str, Node]) -> Node:
-    nameNode = x["name"]
-    assert isinstance(nameNode, WordNode)
-    return VarNode(nameNode.word)
-
-
-def var_def_capture(x: Dict[str, Node]) -> Node:
-    nameNode = x["name"]
-    assert isinstance(nameNode, WordNode)
-    if "value" in x:
-        valueNode = x["value"]
-        return VarDefNode(nameNode.word, valueNode)
-    return VarDefNode(nameNode.word)
-
-
-def assign_capture(x: Dict[str, Node]) -> Node:
-    lhandNode = x["lhand"]
-    assert isinstance(lhandNode, Node)
-    if "rhand" in x:
-        rhandNode = x["rhand"]
-        assert isinstance(lhandNode, VarNode)
-        return AssignNode(lhandNode, rhandNode)
-    return lhandNode
-
-
-def func_call_capture(x: Dict[str, Node]) -> Node:
-    varNode = x["var"]
-    assert isinstance(varNode, VarNode)
-    args = extract_multiple(x, "arg")
-    return FuncCallNode(varNode, args)
-
-
-def while_capture(x: Dict[str, Node]) -> Node:
-    condition = x["condition"]
-    then_block = x["body"]
-    assert isinstance(then_block, CodeBlockNode)
-    return whileNode(condition, then_block)
-
-
-def func_arg_capture(x: Dict[str, Node]) -> Node:
-    nameNode = x["name"]
-    assert isinstance(nameNode, WordNode)
-    return FuncArgNode(nameNode.word)
-
-
-def func_def_capture(x: Dict[str, Node]) -> Node:
-    nameNode = x["name"]
-    assert isinstance(nameNode, WordNode)
-    args = extract_multiple(x, "arg")
-    for arg in args:
-        assert isinstance(arg, FuncArgNode)
-    body = x["body"]
-    assert isinstance(body, CodeBlockNode)
-    return FunctionDefNode(nameNode.word, body, cast(List[FuncArgNode], args))
-
-
-def file_capture(x: Dict[str, Node]) -> Node:
-    functions = extract_multiple(x, "function")
-    for func in functions:
-        assert isinstance(func, FunctionDefNode)
-    return CodeFileNode(cast(List[FunctionDefNode], functions))
-
-
-def return_capture(x: Dict[str, Node]) -> Node:
-    if "value" in x:
-        return ReturnNode(x["value"])
-    return ReturnNode()
 
 
 def get_grammar():
+    """
+    Get the grammar for the Ballang language
+
+    Returns:
+        Grammar: the grammar
+
+    ### The grammar looks like this:
+        
+    file -> function*
+
+    function -> "def" ANY_WORD "(" func_arg* ")" block
+
+    func_arg -> ANY_WORD
+
+    block -> "{" (if_statement | while_loop | statement)* "}"
+
+    if_statement -> "if" expression block ("else" "if" expression block)* ("else" block)?
+
+    while_loop -> "while" expression block
+
+    statement -> return | var_def | func_call | assignment
+
+    return -> "return" expression?
+
+    var_def -> "let" ANY_WORD ("=" expression)?
+
+    var -> ANY_WORD
+
+    assignment -> expression ("=" expression)?
+
+    func_call -> var "(" expression* ")"
+
+    expression -> logical_op
+
+    logical_op -> comparison ("&&" | "||" logical_op)?
+
+    comparison -> plusminus ("==" | "!=" | "<=" | ">=" | "<" | ">" comparison)?
+
+    plusminus -> dotdiv ("+" | "-" plusminus)?
+
+    dotdiv -> unary_op ("*" | "/" dotdiv)?
+
+    unary_op -> ("!" | "-") primary
+
+    primary -> func_call | var | anyNumber | anyString | "(" expression ")"
+    """
     PLUS = SymbolParser("+", SymbolNode)
     MINUS = SymbolParser("-", SymbolNode)
     MULT = SymbolParser("*", SymbolNode)
@@ -310,6 +239,15 @@ def get_grammar():
 
 
 def parse(code: str) -> Node:
+    """
+    Parse a string of Ballang code into a syntax tree
+
+    Args:
+        code (str): the code to parse
+
+    Returns:
+        Node: the syntax tree
+    """
     tokens = lex(code, symbol_chars="+-*/(){};=<>!&|,",
                  multi_symbols=["==", "<=", ">=", "!=", "&&", "||"])
     stream = TokenStream(tokens)
