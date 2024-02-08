@@ -171,7 +171,7 @@ if __name__ == "__main__":
 
     game_button = Button(30, 30, 400, 100, game_screen.makeScreen,'Play')
     menu_buttons = [game_button]
-    pause_button = Button(200, 200, 400, 100, menu_screen.makeScreen,"Pause")
+    pause_button = Button(300, 00, 100, 45, menu_screen.makeScreen,"Pause")
     game_buttons = [pause_button]
     kill_button = Button(30, 30, 400, 100, menu_screen.makeScreen,"Return to Menu")
     kill_buttons = [kill_button]
