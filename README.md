@@ -91,5 +91,5 @@ Alternativ ist auch eine Steuerung per Tastatur möglich. Hierbei werden die Fli
 
 ## Externes Display
 Um den Score interresanter anzuzeigen, ist am Arduino auch noch ein 2004 LCD mit I²C Backpack angeschlossen auf dem der Score und der Highscore angezeigt werden.
-![Display](docs/image(8).png)
+![Display](docs/image(8).jpg)
 Um den Score größer Anzuzeigen (und ihn cooler aussehen zu lassen) wurde die BigNumbers_I2C Biliothek von Anush-DP verwendet, da dies einige Zeit einspart.
