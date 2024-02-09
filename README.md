@@ -80,9 +80,9 @@ Für eine Liste der in Ballang verfügbaren Funktionen siehe `ballang_interop.py
 Level können aus einer JSON-Datei geladen werden. Diese Datei enthält die Formen, die im Level vorhanden sind, sowie den Ballang-Code um diese Formen zu steuern. 
 ## Steuerung
 Die Steuerung des Flippers kann mithilfe von Physikalischen Knöpfen geschehen. Dazu wird ein Arduino verwendet, der die Knöpfe ausliest und über die serielle Schnittstelle an den Computer sendet. Der Computer liest die Knöpfe aus und führt die entsprechenden Aktionen durch. Der Plunger 
-![Plunger skizze](docs/image (4).png)
-![Plunger cut](docs/image (5).png)
-![Plunger full](docs/image (6).png)
+![Plunger skizze](docs/image(4).png)
+![Plunger cut](docs/image(5).png)
+![Plunger full](docs/image(6).png)
 
 funktioniert so, dass es einen Magnet gibt, der sich in eine Spule bewegt, weshalb in dieser eine Spannung induziert wird. Diese wird mit dem Anrduino gemmessen und genauso wie die Knopfdaten an den Computer gesendet.
 Da die Induziertiert Spannung zu hoch ist wird ein Kondensator und mehrere Widerstände verwendet. (Bild einfügen)
