@@ -85,16 +85,18 @@ class PinballGame:
         self.last_time = 0
         self.start_time = time.time_ns()
         self.curr_state = start_state
+        self.speed = speed
+        self.file_vars = file_vars
+        self.name = name
+
+        if on_init is not None:
+            on_init(self)
         self.coll_thread = CollThread(self.curr_state, form_functions=coll_fns)
         self.on_keydown = on_keydown
         self.on_update = on_update
         self.n_colls = 0
-        self.speed = speed
         self.curr_pressed = set()
-        self.file_vars = file_vars
-        self.name = name
-        if on_init is not None:
-            on_init(self)
+
     def calc_time(self):
         return self.last_time + (time.time_ns() - self.start_time)/(10**(self.speed))
 

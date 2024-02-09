@@ -15,7 +15,6 @@ from objects.forms.timedform import TimedForm
 
 def get_state_functions(state: GameState, change_info: ChangeInfo) -> Dict:
     def read_global(name: str) -> Value:
-        print(f"ballang_vars: {state.ballang_vars}")
         return state.ballang_vars.get_var(name)
     def is_defined(name: str) -> bool:
         return state.ballang_vars.is_defined(name)
@@ -138,11 +137,22 @@ def get_update_functions(game: PinballGame) -> Dict:
     def read_file_var(name: str):
         return game.file_vars.get(name)
     
+    def file_var_exists(name: str):
+        return name in game.file_vars
+    
     def set_file_var(name: str, value):
         game.file_vars[name] = value
         file_name = f"{game.name}.json"
+        print(f"printing to file")
         with open(file_name, "w") as f:
             json.dump(game.file_vars, f)
+        print(f"printed to file")
+    
+    def play_sound(path: str):
+        pygame.mixer.Sound(path).play()
+    
+    def play_sound_loop(path: str):
+        pygame.mixer.Sound(path).play(-1)
 
 
     funcs = {
@@ -153,7 +163,10 @@ def get_update_functions(game: PinballGame) -> Dict:
         "increase_speed": increase_speed,
         "decrease_speed": decrease_speed,
         "read_file_var": read_file_var,
+        "file_var_exists": file_var_exists,
         "set_file_var": set_file_var,
+        "play_sound": play_sound,
+        "play_sound_loop": play_sound_loop,
     }
     funcs.update(get_state_functions(game.curr_state, ChangeInfo()))
     return funcs
@@ -168,7 +181,7 @@ def run_update_function(file: str, game: PinballGame, function_name: str, screen
     on_update()
 def prepare_update_function(file: str, function_name: str):
     def run_update_function(game: PinballGame, screen: pygame.Surface):
-        print(f"running update function {function_name}, file: {file}")
+        #print(f"running update function {function_name}, file: {file}")
         funcs = get_update_functions(game)
         funcs.update(get_screen_functions(screen))
         ballang_funcs = parse_file(file, funcs)
@@ -185,6 +198,7 @@ def prepare_init_function(file: str, function_name: str):
         on_init = ballang_funcs.get(function_name)
         assert on_init is not None, f"function {function_name} not found"
         on_init()
+        print(f"vars: {game.curr_state.ballang_vars.vars}")
     return run_init_function
 
 

@@ -21,4 +21,19 @@ def on_update(){
          
          print("e");
     }
+    let score = read_global("score");
+    let highscore = read_global("highscore");
+   show_text("Score: "+str(score), 100, 50, 20);
+   show_text("Highscore: "+str(highscore), 100, 75, 20);
+   
+   if score > highscore {
+      set_global("highscore", score, t);
+      print("saving to file");
+      set_file_var("highscore", score);
+   }
+   let sound = read_global("sound");
+   if sound != "" {
+      play_sound(sound);
+      set_global("sound", "", t);
+   }
  }

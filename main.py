@@ -46,7 +46,7 @@ if __name__ == "__main__":
     dt = 0.001
     balls = []
     # create ball
-    _ball = Ball(Vec(200, 550), 20, "red").with_acc(Vec(0, 9.81)).with_vel(Vec(
+    _ball = Ball(Vec(200, 550), 50, "red").with_acc(Vec(0, 9.81)).with_vel(Vec(
         -50, -300
     ))
     # 50.0 + 17.28480702·x, 479.61721365 - 93.0223965·x + 4.905·x²
@@ -100,8 +100,8 @@ if __name__ == "__main__":
     rotating_polygon = make_rotating(polygon, Vec(250, 250), 100)
     rotating_rotating_polygon = make_rotating(rotating_polygon, Vec(300, 300), 1000)
     print(f"rotating_polygon: {json.dumps(polygon.get_json())}")
-    #start_forms.add_form(polygon)
-    start_forms.add_form(rotating_polygon)
+    start_forms.add_form(polygon)
+    #start_forms.add_form(rotating_polygon)
     rotated_floating_ball = make_rotating(floating_ball, Vec(500, 420), 100)
     #start_forms.add_form(rotated_floating_ball)
     curr_forms = start_forms
@@ -158,7 +158,7 @@ if __name__ == "__main__":
 def on_collide(t, ball_id){
     let n_border_colls = read_global("n_border_colls");
     set_global("n_border_colls", n_border_colls + 1, t);
-    if !read_global("hidden_circle_spawned") {
+    if !read_global("hidden_circle_spawned") && 1==0 {
         print("spawning hidden circle");
         show_named_form("hidden_circle", "hidden_circle");
         set_global("hidden_circle_spawned", 1==1, t);
@@ -170,7 +170,7 @@ def on_collide(t, ball_id){
 #         if evt.type == pygame.KEYDOWN:
 #             print(f"key was pressed: {evt.key}")
 #     continue
-    def on_update(game: PinballGame):
+    def on_update(game: PinballGame, screen):
         run_update_function(on_update_code, game, "on_update", screen)
     def on_update_pseudo(game: PinballGame):
         funcs = get_update_functions(game, globals)

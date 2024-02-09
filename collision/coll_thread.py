@@ -17,6 +17,12 @@ from objects.forms.transformform import TransformForm
 
 
 def empty_queue(queue: Queue):
+    """
+    Empties the given queue by removing all elements from it.
+
+    Args:
+        queue (Queue): The queue to be emptied.
+    """
     print("emptying queue")
     start_time = time.time()
     while not queue.empty():
@@ -130,8 +136,9 @@ def precalc_colls(in_queue: Queue[Any], out_queues: List[Queue[GameStateChange]]
         on_collision = other.on_collision
 
         for fn_name in on_collision:
-            #print(f"collision, executing {fn_name}")
+            print(f"collision, executing {fn_name}, on_collision: {on_collision}")
             form_functions[fn_name](game_state, first_coll_t, first_coll_ball, change_info)
+            print(f"ballang_vars: {game_state.ballang_vars.vars}")
         # print(f"new ball pos: {ball.get_pos(coll.time + ball.start_t)}")
         if log:
             print(f"ball-to-form: {first_coll_t}")

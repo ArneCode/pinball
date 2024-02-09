@@ -215,6 +215,8 @@ class World:
         func_name = ballang_str_dict["func_name"]
         code = ballang_str_dict["code"]
         self.ballang_funcs[func_name] = code
+        print(f"parsed ballang_str: {func_name}, ballang_funcs: {self.ballang_funcs}")
+        #raise ValueError("ballang_str not implemented")
         return func_name
     def parse_ballang_inline(self, ballang_inline_dict):
         code = ballang_inline_dict["code"]
@@ -300,7 +302,9 @@ def {name}(t,ball_id){{
         forms, ballang_funcs = self.get_forms()
         balls = self.get_balls()
         coll_fns = {}
+        print("!!!!!")
         for name, code in ballang_funcs.items():
+            print(f"preparing coll function: {name}, code: {code}")
             coll_fns[name] = prepare_coll_function(code, name)
         globals = VarHandler()
         if "on_update" in game_dict.keys():

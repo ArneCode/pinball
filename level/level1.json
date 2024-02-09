@@ -10,10 +10,10 @@
         "name": "level1"
     },
     "on_init": {
-        "type": "BallangString",
+        "type": "BallangFile",
         "params": {
-            "code": "def on_init(){set_global(\"flipper_moving_up\", 1==0, 0.0);}",
-            "func_name": "on_init"
+            "path": "src/on_init.balls",
+            "name": "on_init"
         }
     },
     "on_update": {
@@ -85,9 +85,9 @@
                         ],
                         "name": "polygon",
                         "material": {
-                            "factor_ort": 0.8,
-                            "factor_par": 0.95,
-                            "min_ort": 20,
+                            "factor_ort": 2.0,
+                            "factor_par": 1.0,
+                            "min_ort": 40,
                             "min_par": 1
                         },
                         "self_coll_direction": "ALLOW_FROM_OUTSIDE",
@@ -127,12 +127,19 @@
                 "line_coll_direction": "ALLOW_FROM_OUTSIDE",
                 "filled": false,
                 "material": {
-                    "factor_ort": 0.5,
-                    "factor_par": 0.5,
+                    "factor_ort": 0.9,
+                    "factor_par": 0.99,
                     "min_ort": 20,
                     "min_par": 5
                 },
                 "effects": [
+                    {
+                        "type": "BallangString",
+                        "params": {
+                            "code": "def on_collide_score(coll_t, ball_id){print(\"abc\");set_global(\"score\",read_global(\"score\")+1,coll_t);}",
+                            "func_name": "on_collide_score"
+                        }
+                    }
                 ]
             }
         },
@@ -174,7 +181,7 @@
                         "type": "BallangFile",
                         "params": {
                             "path": "src/force_field.balls",
-                            "name": "on_collide"
+                            "name": "on_collide_field"
                         }
                     }
                 ]

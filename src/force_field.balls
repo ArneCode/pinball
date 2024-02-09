@@ -1,4 +1,4 @@
-def on_collide(coll_t, ball_id){
+def on_collide_field(coll_t, ball_id){
     if !is_defined("inside_field") {
         set_global("inside_field", 1==0, coll_t);
         set_global("last_coll_t", 0.0, coll_t);
