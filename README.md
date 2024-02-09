@@ -1,5 +1,6 @@
 # Pinball
 Hallo, dieses Projekt ist etwas größer außgeartet als erwartet. Deshalb hier eine kurze Erklärung der Komponente.
+!!Wichtig!! Bisher nur unter Linux getestet (aufgrund von fehlender Macs und einer Abneigung zu Windows).
 
 ## Kollisionen
 Kollisionen werden nicht mithilfe von einzelnen Schritten berechnet, sondern die Bahnkurve wird mithilfe von Polynomen beschrieben. Genauer gesagt einem Polynom für die x-Position abhängig von der Zeit und einem für die y-Position.
@@ -78,4 +79,11 @@ Für eine Liste der in Ballang verfügbaren Funktionen siehe `ballang_interop.py
 ## Level
 Level können aus einer JSON-Datei geladen werden. Diese Datei enthält die Formen, die im Level vorhanden sind, sowie den Ballang-Code um diese Formen zu steuern. 
 ## Steuerung
-Die Steuerung des Flippers kann mithilfe von Physikalischen Knöpfen geschehen. Dazu wird ein Arduino verwendet, der die Knöpfe ausliest und über die serielle Schnittstelle an den Computer sendet. Der Computer liest die Knöpfe aus und führt die entsprechenden Aktionen durch. Die Kommunikation mit dem Arduino wird in `arduino.py` implementiert. Die Steuerung der Flippers wird in `flipper.py` implementiert.
+Die Steuerung des Flippers kann mithilfe von Physikalischen Knöpfen geschehen. Dazu wird ein Arduino verwendet, der die Knöpfe ausliest und über die serielle Schnittstelle an den Computer sendet. Der Computer liest die Knöpfe aus und führt die entsprechenden Aktionen durch. Der Plunger (Bilder einfügen) funktioniert so, dass es einen Magnet gibt, der sich in eine Spule bewegt, weshalb in dieser eine Spannung induziert wird. Diese wird mit dem Anrduino gemmessen und genauso wie die Knopfdaten an den Computer gesendet.
+Da die Induziertiert Spannung zu hoch ist wird ein Kondensator und mehrere Widerstände verwendet. (Bild einfügen)
+
+Alternativ ist auch eine Steuerung per Tastatur möglich. Hierbei werden die Flipperarme jeweils von der linken und rechten Pfeiltaste betätigt und der Ballabschuss kann per Leertaste gemacht werden.
+
+## Externes Display
+Um den Score interresanter anzuzeigen, ist am Arduino auch noch ein 2004 LCD mit I²C Backpack angeschlossen auf dem der Score und der Highscore angezeigt werden. (Bild hinzugügen)
+Um den Score größer Anzuzeigen (und ihn cooler aussehen zu lassen) wurde die BigNumbers_I2C Biliothek von Anush-DP verwendet, da dies einige Zeit einspart.
