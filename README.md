@@ -85,10 +85,11 @@ Die Steuerung des Flippers kann mithilfe von Physikalischen Knöpfen geschehen. 
 ![Plunger full](docs/image(6).png)
 
 funktioniert so, dass es einen Magnet gibt, der sich in eine Spule bewegt, weshalb in dieser eine Spannung induziert wird. Diese wird mit dem Anrduino gemmessen und genauso wie die Knopfdaten an den Computer gesendet.
-Da die Induziertiert Spannung zu hoch ist wird ein Kondensator und mehrere Widerstände verwendet. (Bild einfügen)
+Da die Induziertiert Spannung zu hoch ist wird ein Kondensator und mehrere Widerstände verwendet. ![Wirering](docs/image(7).png)
 
 Alternativ ist auch eine Steuerung per Tastatur möglich. Hierbei werden die Flipperarme jeweils von der linken und rechten Pfeiltaste betätigt und der Ballabschuss kann per Leertaste gemacht werden.
 
 ## Externes Display
-Um den Score interresanter anzuzeigen, ist am Arduino auch noch ein 2004 LCD mit I²C Backpack angeschlossen auf dem der Score und der Highscore angezeigt werden. (Bild hinzugügen)
+Um den Score interresanter anzuzeigen, ist am Arduino auch noch ein 2004 LCD mit I²C Backpack angeschlossen auf dem der Score und der Highscore angezeigt werden.
+![Display](docs/image(8).png)
 Um den Score größer Anzuzeigen (und ihn cooler aussehen zu lassen) wurde die BigNumbers_I2C Biliothek von Anush-DP verwendet, da dies einige Zeit einspart.
