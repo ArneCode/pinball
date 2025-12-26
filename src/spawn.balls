@@ -1,0 +1,3 @@
+def spawn_new_ball(coll_t, ball_id){
+    set_global("ball_spawnable", 1==1, coll_t);
+}

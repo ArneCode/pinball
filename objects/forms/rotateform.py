@@ -6,6 +6,7 @@ import math
 from typing import List, Optional
 import pygame
 from collision.collision import RotatedCollision
+from math_utils.angle import rad_to_deg
 from math_utils.polynom import Polynom
 from objects.ball import Ball
 from objects.form import Form
@@ -64,6 +65,7 @@ class RotateForm(Form):
         if time is None:
             return
         angle = self.start_angle + self.angle_speed*(time-self.start_time)
+        #print(f"angle: {angle}")
         pts = self.form.get_points(time)
         pts_rotated = list(map(lambda p: p.rotate(
             angle, self.center).as_tuple(), pts))
@@ -140,3 +142,17 @@ class RotateForm(Form):
         new_center = self.center.rotate(angle, center)
         new_form = self.form.rotate(angle, center)
         return RotateForm(new_form, new_center, self.start_angle, self.angle_speed, self.start_time, self.name)
+    def get_json(self) -> dict:
+        return {
+            "type": "RotateForm",
+            "params": {
+                "form": self.form.get_json(),
+                "center": self.center.get_json(),
+                "start_angle": rad_to_deg(self.start_angle),
+                "angle_speed": rad_to_deg(self.angle_speed),
+                "start_time": self.start_time,
+                "name": self.name
+            }
+        }
+    def is_moving(self, time: float) -> bool:
+        return True

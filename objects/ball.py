@@ -53,7 +53,17 @@ class Ball:
             - Vec: position of the ball at time t
         """
         return self.bahn.apply(t-self.start_t)
+    def get_vel(self, t: float) -> Vec:
+        """
+        Get the velocity of the ball at time t, t is relative to the start of the game
 
+        Args:
+            - t: time to get the velocity at
+
+        Returns:
+            - Vec: velocity of the ball at time t
+        """
+        return self.bahn.deriv().apply(t-self.start_t)
     def draw(self, t, screen):
         """
         Draw the ball at its position at time t

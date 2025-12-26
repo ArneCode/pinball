@@ -140,3 +140,14 @@ class TempForm(Form):
         new_start_form = self.start_form.rotate(angle, center)
         new_end_form = self.end_form.rotate(angle, center)
         return TempForm(new_start_form, self.form_duration, new_end_form, self.name)
+    def get_json(self) -> dict:
+        return {
+            "type": "TempForm",
+            "params": {
+                "start_form": self.start_form.get_json(),
+                "form_duration": self.form_duration,
+                "end_form": self.end_form.get_json()
+            }
+        }
+    def is_moving(self, t: float) -> bool:
+        return self.start_form.is_moving(t) if t < self.form_duration else self.end_form.is_moving(t)

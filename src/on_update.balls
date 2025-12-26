@@ -1,0 +1,76 @@
+def on_update(){
+      hardware_collect_input();
+      let t = calc_time();
+
+
+      let score = read_global("score");
+      let highscore = read_global("highscore");
+      show_text("Score: "+str(score), 100, 50, 20);
+      show_text("Highscore: "+str(highscore), 100, 75, 20);
+
+      if (score > highscore) {
+         set_global("highscore", score, t);
+         print("saving to file");
+         set_file_var("highscore", score);
+      }
+
+      let sound = read_global("sound");
+      if sound != "" {
+         play_sound(sound);
+         set_global("sound", "", t);
+      }
+
+     let flipper_moving_up_left = read_global("flipper_moving_up_left");
+     let flipper_moving_left = is_moving("flipper_left",t);
+     if flipper_moving_left {
+        show_text("flipper_moving_up_left: "+str(flipper_moving_up_left), 100, 100, 20);
+     }
+     if is_key_pressed(1073741904) && !flipper_moving_up_left && !flipper_moving_left {
+        print("option 1");
+         spawn_form_timed("flipper_moving_up_left", "flipper_left", t);
+         print("c");
+         restart_colls(t);
+        set_global("flipper_moving_up_left", 1==1, t);
+     }else if !is_key_pressed(1073741904) && flipper_moving_up_left && !flipper_moving_left {
+        print("option 2");
+         spawn_form_timed("flipper_moving_down_left", "flipper_left", t);
+         print("c");
+         restart_colls(t);
+         print("d");
+         set_global("flipper_moving_up_left", 0==1, t);
+         
+         print("e");
+    }
+
+    let flipper_moving_up_right = read_global("flipper_moving_up_right");
+     let flipper_moving_right = is_moving("flipper_right",t);
+     if flipper_moving_right {
+        show_text("flipper_moving_up_right: "+str(flipper_moving_up_right), 100, 100, 20);
+     }
+     if is_key_pressed(1073741903) && !flipper_moving_up_right && !flipper_moving_right {
+        print("option 1");
+         spawn_form_timed("flipper_moving_up_right", "flipper_right", t);
+         print("c");
+         restart_colls(t);
+        set_global("flipper_moving_up_right", 1==1, t);
+     }else if !is_key_pressed(1073741903) && flipper_moving_up_right && !flipper_moving_right {
+        print("option 2");
+         spawn_form_timed("flipper_moving_down_right", "flipper_right", t);
+         print("c");
+         restart_colls(t);
+         print("d");
+         set_global("flipper_moving_up_right", 0==1, t);
+         
+         print("e");
+    }
+
+    let spawn = read_global("ball_spawnable");
+    if spawn{
+      show_text("Ball Bereit", 610, 900, 30);
+      if is_key_pressed(32){
+         spawn_ball(Vec(660,970), Vec(20,-340), Vec(0,9.8), t);
+         set_global("ball_spawnable", 1==0, t);
+         restart_colls(t);
+      }
+    }
+ }

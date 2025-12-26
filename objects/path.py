@@ -17,6 +17,15 @@ from math_utils.angle import check_angle_between
 class Path(ABC):
     @abstractmethod
     def get_normal(self, pos: Vec) -> Vec:
+        """
+        Returns the normal vector at the given position on the path.
+
+        Parameters:
+        - pos: A Vec object representing the position on the path.
+
+        Returns:
+        - The normal vector at the given position.
+        """
         pass
 
     @abstractmethod
@@ -42,7 +51,7 @@ class Path(ABC):
         pass
 
     @abstractmethod
-    def get_form(self):
+    def get_form(self) -> "StaticForm":
         pass
     # @abstractmethod
 
@@ -51,6 +60,18 @@ class Path(ABC):
 
 
 class CirclePath(Path):
+    """
+    Represents a circle the center of the ball can collide with
+    
+    Attributes:
+        pos (Vec): the center of the circle
+        radius (float): the radius of the circle
+        points (List[Tuple[float, float]]): the points of the circle
+        name (str): the name of the circle
+        bound (BoundingBox): the bounding box of the circle
+        min_angle (float): the minimum angle of the circle
+        max_angle (float): the maximum angle of the circle
+        """
     pos: Vec
     radius: float
     points: List[Tuple[float, float]]
@@ -62,6 +83,14 @@ class CirclePath(Path):
     collision_direction: CollDirection
 
     def __init__(self, pos: Vec, radius, form, min_angle: float = 0, max_angle: float = 2*math.pi, coll_direction: CollDirection = CollDirection.ALLOW_ALL, name=""):
+        """
+        Constructor for CirclePath
+        
+        Args:
+            pos (Vec): the center of the circle
+            radius (float): the radius of the circle
+            min_angle (float): the minimum angle of the circle
+            max_angle (float): the maximum angle of the circle"""
         while max_angle <= min_angle:
             max_angle += 2*math.pi
         self.pos = pos
@@ -103,11 +132,17 @@ class CirclePath(Path):
             self.bound.draw(screen, color)
 
     def check_coll_angle(self, pos: Vec) -> bool:
+        """
+        Check wether the given position is inside the angle range of the circle
+        """
         angle = (pos-self.pos).get_angle()
 
         return check_angle_between(angle, self.min_angle, self.max_angle)
 
     def check_coll_direction(self, coll_pos: Vec, in_vec: Vec) -> bool:
+        """
+        Check wether the given direction is allowed for a collision at the given position
+        """
         vec_from_center = coll_pos - self.pos
         dot = vec_from_center.dot(in_vec)
         if self.collision_direction == CollDirection.ALLOW_ALL:
@@ -118,11 +153,17 @@ class CirclePath(Path):
             return dot < 0
 
     def check_coll(self, coll_t: float, bahn: Vec) -> bool:
+        """
+        Check wether a collision at the given time is valid
+        """
         coll_pos = bahn.apply(coll_t)
         ball_vel = bahn.deriv().apply(coll_t)
         return self.check_coll_angle(coll_pos) and self.check_coll_direction(coll_pos, ball_vel)
 
     def find_collision(self, ball: Ball) -> Collision | None:
+        """
+        Returns the collision with the center of the ball or None if there is no collision
+        """
         # TODO: restrict searched t by already found!
         # t_range: Interval | None = self.bound.times_inside(ball)
         check_eq: Polynom = ((ball.bahn.x-self.pos.x)**2 +
@@ -134,6 +175,9 @@ class CirclePath(Path):
         return None
 
     def find_all_collision_times(self, bahn: Vec[Polynom]) -> List[float]:
+        """
+        Returns all collisions with the center of the ball or an empty list if there is no collision
+        """
         check_eq: Polynom = ((bahn.x-self.pos.x)**2 +
                              (bahn.y-self.pos.y)**2 - (self.radius)**2)
         colls = check_eq.find_roots(

@@ -1,0 +1,3 @@
+def on_collide(coll_t, ball_id){
+    remove_ball(ball_id);
+}

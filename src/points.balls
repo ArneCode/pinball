@@ -1,0 +1,17 @@
+def add_5_points(coll_t, ball_id){
+    let score = read_global("score");
+    score = score + 5;
+    set_global("score", score, coll_t);
+}
+
+def add_20_points(coll_t, ball_id){
+    let score = read_global("score");
+    score = score + 20;
+    set_global("score", score, coll_t);
+}
+
+def add_50_points(coll_t, ball_id){
+    let score = read_global("score");
+    score = score + 50;
+    set_global("score", score, coll_t);
+}

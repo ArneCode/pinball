@@ -2,7 +2,7 @@
 This module contains the Polynom class, which is a wrapper around numpy.polynomial.Polynomial.
 """
 from __future__ import annotations
-from typing import Callable, Optional, List
+from typing import Callable, Dict, Optional, List
 
 import numpy as np
 from numpy.polynomial import Polynomial as NpPoly
@@ -13,7 +13,7 @@ class Polynom(NpPoly):
     It used to be implemented by myself, but I switched to numpy.polynomial.Polynomial because it is faster.
     To those interested, the old implementation is still in the comments.
     """
-    def find_roots(self, min_x: float = 0.0, filter_fn: Optional[Callable[[float], bool]] = None, sort: bool = True) -> List[float]:
+    def find_roots(self, min_x: float = 0.000001, filter_fn: Optional[Callable[[float], bool]] = None, sort: bool = True) -> List[float]:
         """
         find roots using numpy
 
@@ -42,6 +42,13 @@ class Polynom(NpPoly):
         Calling an Object as a function obfuscates what happens, just use .apply(x) instead
         """
         raise NotImplementedError("use apply instead")
+    def get_json(self) -> Dict:
+        """
+        Returns the polynom as a list of coefficients
+        """
+        return {
+            "koefs": list(self.coef)
+        }
     # koefs: List[float | int]
 
     # def __init__(self, koefs):

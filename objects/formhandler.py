@@ -13,30 +13,35 @@ class FormHandler:
     """
     forms: List[Form]
     named_forms: Dict[str, Form]
+    hidden_forms: Dict[str, Form]
 
-    def __init__(self, forms: Optional[List[Form]] = None, named_forms: Optional[Dict[str, Form]] = None):
+    def __init__(self, forms: Optional[List[Form]] = None, named_forms: Optional[Dict[str, Form]] = None, hidden_forms: Optional[Dict[str, Form]] = None):
         """
         initializes the formhandler
 
         Args:
-            forms (List[Form], optional): list of forms. Defaults to None.
-            named_forms (Dict[str, Form], optional): dict of named forms. Defaults to None.
+            - forms (List[Form], optional): list of forms. Defaults to None.
+            - named_forms (Dict[str, Form], optional): dict of named forms. Defaults to None.
+            - hidden_forms (Dict[str, Form], optional): Dict of Forms which are not drawn or checked for collision. Can be used to store forms which are not used at the moment. Defaults to None.
         """
         if forms is None:
             forms = []
         if named_forms is None:
             named_forms = {}
+        if hidden_forms is None:
+            hidden_forms = {}
         self.forms = forms
         self.named_forms = named_forms
+        self.hidden_forms = hidden_forms
 
-    def clone(self) -> FormHandler:
+    def copy(self) -> FormHandler:
         """
-        clones the formhandler
+        shallow copy of the formhandler
 
         Returns:
             FormHandler: the cloned formhandler
         """
-        return FormHandler(copy.copy(self.forms), copy.copy(self.named_forms))
+        return FormHandler(copy.copy(self.forms), copy.copy(self.named_forms), copy.copy(self.hidden_forms))
 
     def add_form(self, form: Form):
         """Adds a form to the formhandler
@@ -54,6 +59,12 @@ class FormHandler:
             form (Form): the form to set
         """
         self.named_forms[name] = form
+    
+    def set_hidden_form(self, name, form: Form):
+        self.hidden_forms[name] = form
+    
+    def get_hidden_form(self, name) -> Optional[Form]:
+        return self.hidden_forms.get(name, None)
 
     def get_named_form(self, name: str) -> Optional[Form]:
         """Returns a named form
@@ -71,7 +82,12 @@ class FormHandler:
     def remove_named_form(self, name: str):
         print(f"removing named form {name}, forms: {self.named_forms}")
         del self.named_forms[name]
-
+    def hide_named_form(self, name: str):
+        self.hidden_forms[name] = self.named_forms[name]
+        del self.named_forms[name]
+    def show_named_form(self, name: str):
+        self.named_forms[name] = self.hidden_forms[name]
+        del self.hidden_forms[name]
     def draw(self, screen, color, time: float):
         """Draws all forms in this formhandler"""
         for form in self.forms:
@@ -80,19 +96,28 @@ class FormHandler:
             form.draw(screen, color, time)
 
     def find_collision(self, ball: Ball, ignore: List[Form] = []):
-        first_coll = None
-        for form in self.forms + list(self.named_forms.values()):
-            if form in ignore:
-                continue
-            coll = form.find_collision(ball)
-            if coll is None:
-                continue
-            if first_coll is None or coll.get_coll_t() < first_coll.get_coll_t():
-                # print(f"resetting first_coll: to {coll.get_coll_t()}")
-                first_coll = coll
-            else:
-                pass
-                # print(f"no reset, coll_t: {coll.get_coll_t()}, first_coll_t: {first_coll.get_coll_t()}")
-        if first_coll is not None and False:
-            print(f"first_coll: {first_coll.get_coll_t()}")
-        return first_coll
+            """
+            Finds the first collision between the given ball and the forms in the form handler.
+            
+            Parameters:
+            - ball (Ball): The ball object to check for collision.
+            - ignore (List[Form]): A list of forms to ignore during collision detection.
+            
+            Returns:
+            - coll (Collision): The first collision found, or None if no collision occurs.
+            """
+            first_coll = None
+            for form in self.forms + list(self.named_forms.values()):
+                if form in ignore:
+                    continue
+                coll = form.find_collision(ball)
+                if coll is None:
+                    continue
+                if first_coll is None or coll.get_coll_t() < first_coll.get_coll_t():
+                    first_coll = coll
+                else:
+                    pass
+                    # print(f"no reset, coll_t: {coll.get_coll_t()}, first_coll_t: {first_coll.get_coll_t()}")
+            if first_coll is not None and False:
+                print(f"first_coll: {first_coll.get_coll_t()}")
+            return first_coll

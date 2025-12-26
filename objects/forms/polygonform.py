@@ -1,14 +1,14 @@
 """This module contains the PolygonForm class."""
 from __future__ import annotations
 import math
-from typing import List
+from typing import Callable, Dict, List
 import pygame
 from collision.coll_direction import CollDirection
 from math_utils.angle import calc_angle_between
 from math_utils.interval import SimpleInterval
 from objects.ball import Ball
 from objects.material import Material
-from objects.form import Form
+from objects.form import Form, StaticForm
 from objects.path import Path, CirclePath, LinePath
 from math_utils.vec import Vec
 from math_utils.polynom import Polynom
@@ -42,7 +42,7 @@ def get_all_coll_times(paths: List[Path], bahn: Vec[Polynom]) -> List[float]:
     return new_colls
 
 
-class PolygonForm(Form):
+class PolygonForm(StaticForm):
     """
     A polygon form. It can be used to represent a Polygon in the game or sometimes as an outline for a more complex form.
 
@@ -67,7 +67,8 @@ class PolygonForm(Form):
 
     def __init__(self, points: List[Vec[float]],
                  material: Material, self_coll_direction: CollDirection = CollDirection.ALLOW_FROM_OUTSIDE,
-                 line_coll_direction: CollDirection = CollDirection.ALLOW_FROM_OUTSIDE, name="polygon", edge_normals: Optional[List[Vec[float]]] = None):
+                 line_coll_direction: CollDirection = CollDirection.ALLOW_FROM_OUTSIDE, ball_radius: float = 50, name="polygon", edge_normals: Optional[List[Vec[float]]] = None,
+                  on_collision: List[str] = [], filled: bool = False, do_reflect: bool = True):
         """
         Create a new polygon form
         
@@ -87,21 +88,24 @@ class PolygonForm(Form):
         self.material = material
         self.self_coll_direction = self_coll_direction
         self.line_coll_direction = line_coll_direction
+        self.filled = filled
+
+        self.ball_radius = ball_radius
         if edge_normals is None:
             self.find_edge_normals()
         else:
             self.edge_normals = edge_normals
         if self_coll_direction == CollDirection.ALLOW_FROM_INSIDE:
-            self.paths = self.make_paths(50, -1)
+            self.paths = self.make_paths(ball_radius, -1)
         elif self_coll_direction == CollDirection.ALLOW_FROM_OUTSIDE:
-            self.paths = self.make_paths(50, 1)
+            self.paths = self.make_paths(ball_radius, 1)
         else:
-            self.paths = self.make_paths(50) + self.make_paths(50, -1)
+            self.paths = self.make_paths(ball_radius) + self.make_paths(ball_radius, -1)
         self.point_tuples = []
 
         for point in points:
             self.point_tuples.append((point.x, point.y))
-        super().__init__(self.paths)
+        super().__init__(self.paths, on_collision=on_collision, do_reflect=do_reflect)
 
     def find_edge_normals(self):
         """
@@ -271,7 +275,10 @@ class PolygonForm(Form):
         Returns:
             None
         """
-        pygame.draw.polygon(screen, color, self.point_tuples, width=3)
+        if self.filled:
+            pygame.draw.polygon(screen, color, self.point_tuples, 0)
+        else:
+            pygame.draw.polygon(screen, color, self.point_tuples, width=3)
         for path in self.paths:
             path.draw(screen, color)
 
@@ -285,7 +292,7 @@ class PolygonForm(Form):
         Returns:
             List[Vec[float]]: The points of the polygon
         """
-        return self.points
+        return self.points+[self.points[0]]
 
     def get_name(self):
         """
@@ -310,7 +317,7 @@ class PolygonForm(Form):
         new_points = []
         for point in self.points:
             new_points.append(point.rotate(angle, center))
-        return PolygonForm(new_points, self.material, self.self_coll_direction, self.line_coll_direction, self.name)
+        return PolygonForm(new_points, self.material, self.self_coll_direction, self.line_coll_direction, self.ball_radius, self.name)
 
     def get_material(self) -> Material:
         """
@@ -332,3 +339,15 @@ class PolygonForm(Form):
         for point in self.points:
             point_str += f"{point}, "
         return f"PolygonForm(points=[{point_str}], name={self.name})"
+
+    def get_json(self) -> dict:
+        return {
+            "type": "PolygonForm",
+            "params": {
+                "points": [point.get_json() for point in self.points],
+                "name": self.name,
+                "material": self.material.get_json(),
+                "self_coll_direction": self.self_coll_direction.name,
+                "line_coll_direction": self.line_coll_direction.name,
+            }
+        }

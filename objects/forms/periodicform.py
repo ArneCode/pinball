@@ -50,6 +50,7 @@ class PeriodicForm(Form):
         self.forms = forms
         self.total_duration = 0
         for form, duration in forms:
+            print(f"form: {form}, duration: {duration}")
             self.total_duration += duration
 
         # make an outline of the form
@@ -146,7 +147,7 @@ class PeriodicForm(Form):
             while True:
                 move_form, mov_start, mov_end = self.get_move_info(t)
                 if mov_start > tmax:
-                    print("mov_start > tmax, breaking")
+                    #print("mov_start > tmax, breaking")
                     break
 
                 # find ot where the ball is at move_start
@@ -166,9 +167,12 @@ class PeriodicForm(Form):
                 if coll is None:
                     # TODO: find a better way to do this
                     t = mov_end + 0.2
+                    _, new_mov_start, _ = self.get_move_info(t)
+                    assert new_mov_start != mov_start, "the ugly way didn't work"
+
                     continue
                 abs_coll_t = coll.get_coll_t() + new_ball.start_t + mov_start
-                if abs_coll_t > tmax:
+                if abs_coll_t > tmax or abs_coll_t > mov_end:
                     break
                 rel_coll_t = abs_coll_t - ball.start_t
                 return TimedCollision(coll, rel_coll_t)
@@ -186,7 +190,6 @@ class PeriodicForm(Form):
             None
         """
         form_nr = self.get_form_nr(time)
-        print(f"form_nr: {form_nr}")
         t = time % self.total_duration
         for i in range(form_nr):
             form, duration = self.forms[i]
@@ -233,3 +236,20 @@ class PeriodicForm(Form):
             new_form = form.rotate(angle, center)
             new_forms.append((new_form, duration))
         return PeriodicForm(new_forms)
+    
+    def get_json(self) -> dict:
+        return {
+            "type": "PeriodicForm",
+            "params": {
+                "forms": [
+                    {
+                        "form": form.get_json(),
+                        "duration": duration
+                    }
+                    for form, duration in self.forms
+                ]
+            }
+        }
+    def is_moving(self, time: float) -> bool:
+        form, _, _ = self.get_move_info(time)
+        return form.is_moving(time)

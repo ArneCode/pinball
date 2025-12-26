@@ -3,17 +3,17 @@ This file contains the LineForm class, which represents a straight line in the g
 """
 from __future__ import annotations
 import math
-from typing import List
+from typing import Callable, Dict, List, Optional
 
 import pygame
 from collision.coll_direction import CollDirection
-from objects.form import Form
+from objects.form import Form, StaticForm
 from objects.material import Material
 from objects.path import Path, CirclePath, LinePath
 from math_utils.vec import Vec
 
 
-class LineForm(Form):
+class LineForm(StaticForm):
     """
     A straight line in the game.
 
@@ -32,7 +32,9 @@ class LineForm(Form):
     name: str
     paths: List[Path]
 
-    def __init__(self, pos1: Vec[float], pos2: Vec[float], ball_radius: float, material: Material, name="line"):
+    def __init__(self, pos1: Vec[float], pos2: Vec[float], 
+                 ball_radius: float, material: Material, 
+                 name="line",on_collision: List[str] = [], do_reflect: bool = True):
         """
         Initialize the LineForm.
 
@@ -64,7 +66,7 @@ class LineForm(Form):
         self.paths.append(CirclePath(pos2, ball_radius, self,
                           angle-math.pi/2, angle+math.pi/2, CollDirection.ALLOW_FROM_OUTSIDE))
         # giving the paths to the Form class so that it can handle collisions
-        super().__init__(self.paths)
+        super().__init__(self.paths, on_collision=on_collision, do_reflect=do_reflect)
 
     def draw(self, screen, color, time: float):
         """
@@ -96,3 +98,14 @@ class LineForm(Form):
 
     def get_material(self) -> Material:
         return self.material
+    
+    def get_json(self) -> dict:
+        return {
+            "type": "LineForm",
+            "params": {
+                "pos1": self.pos1.get_json(),
+                "pos2": self.pos2.get_json(),
+                "name": self.name,
+                "material": self.material.get_json(),
+            }
+        }

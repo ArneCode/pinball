@@ -1,29 +1,11 @@
+"""
+Run the game
+"""
 from __future__ import annotations
-import copy
-import math
-import random
-import time
-from typing import List, Set, Tuple
 import pygame
-from game import PinballGame, make_flipper, make_rotating
-from objects.ball import Ball
-from collision.coll_direction import CollDirection
-from objects.form import Form
-from objects.forms.circleform import CircleForm
-from objects.forms.lineform import LineForm
-from objects.forms.periodicform import PeriodicForm
-from objects.forms.polygonform import PolygonForm
-from objects.forms.rotateform import RotateForm
-from objects.forms.tempform import TempForm
-from objects.formhandler import FormHandler
-from math_utils.interval import SimpleInterval
 from objects.material import Material
-from math_utils.polynom import Polynom
-from math_utils.vec import Vec
-#from ballang_interop import prepare_functions
-
-from collision.coll_thread import CollThread
-from menus import Button, Screen, ScreenHandler
+from read_world import World
+from screen import Button, Screen, ScreenHandler
 
 normal_material = Material(0.8, 0.95, 20, 1)
 flipper_material = Material(1.1, 1.0, 40, 0.0)
@@ -33,174 +15,75 @@ speed = 8.0
 if __name__ == "__main__":
     # pygame setup
     pygame.init()
-    screen = pygame.display.set_mode((1280, 720))
+    screen = pygame.display.set_mode((720, 1000))
 
     clock = pygame.time.Clock()
     # clock.tick(60)  # limits FPS to 60
     running = True
     i = 0
 
-    dt = 0.001
-    balls = []
-    # create ball
-    _ball = Ball(Vec(200, 550), 50, "red").with_acc(Vec(0, 9.81)).with_vel(Vec(
-        -50, -300
-    ))
-    # 50.0 + 17.28480702·x, 479.61721365 - 93.0223965·x + 4.905·x²
-    t_ = Polynom([0, 1])
-    bahn = Vec((t_**0)*50.0 + (t_**1)*17.28480702, (t_**0) *
-               479.61721365 + t_*(-93.0223965) + (t_**2)*4.905)
-    _ball_neu = _ball.with_bahn(bahn).with_start_t(4.692454956294632)
+    world = World("level/level2.json")
+    # forms, ballang_funcs = world.get_forms()
+    # print(f"ballang_funcs: {ballang_funcs}")
+    game = world.parse_game()
 
-    balls.append(_ball)
-    # balls.append(_ball_neu)
-    _ball2 = Ball(Vec(250, 550), 50, "red").with_acc(Vec(0, 0.1)).with_vel(Vec(
-        2, 0.1
-    ))
-    _ball3 = Ball(Vec(700, 550), 50, "red").with_acc(Vec(0, 0.1)).with_vel(Vec(
-        -2, 0.1
-    ))
-    # balls.append(_ball3)
-    # balls.append(_ball2)
-    _ball4 = Ball(Vec(700, 200), 50, "red").with_acc(Vec(0, 0.1)).with_vel(Vec(
-        -2, 0.1
-    ))
-    # balls.append(_ball4)
-    ball_form = _ball2.get_form()
-    coll = ball_form.find_collision(_ball)
-    print(f"got coll: {coll}")
-    # exit()
-    # balls.append(_ball)
-    start_forms = FormHandler()
-    # rand
-    rand = PolygonForm([Vec(0, 0), Vec(1280, 0), Vec(1280, 720), Vec(
-        0, 720)], normal_material, CollDirection.ALLOW_FROM_INSIDE)
-    start_forms.add_form(rand)
+    USE_ROTATING = True
+    if not USE_ROTATING:
+        game.curr_state.forms.hide_named_form("rotating")
+    USE_MENUE = False
+    if USE_MENUE:
+        game.pause()
+        kill_screen = Screen("kill_screen", None, color=(0, 0, 0))
+        game_screen = Screen("game", lambda screen: game.update(screen))
+        menu_screen = Screen("menu", None, color=(0, 0, 255))
 
-    flipper_line = LineForm(Vec(100, 720), Vec(
-        450, 720), 50, material=flipper_material)
-    # print(f"flipper steep: {flipper_line.paths[1].eq_x}, {flipper_line.paths[1].eq_y}")
-    flipper_line_rotated = make_flipper(
-        flipper_line, Vec(100, 720), 0, 0, 0.001, True)
-    flipper_line_rotated.is_end = True
-    # flipper = FormContainer(flipper_line_rotated, name="flipper")
-    start_forms.set_named_form("flipper", flipper_line_rotated)
-    a = 5.5
-    floating_ball = CircleForm(
-        Vec(700, 420), 100, normal_material, (0, 0, 0), -2 + a, 1.7 + a)
-    polygon_pts: List[Vec[float]] = list(map(lambda v: v*1.1, [Vec(100, 100), Vec(
-        200, 100), Vec(300, 150), Vec(200, 200), Vec(300, 400), Vec(100, 200)]))
-    polygon = PolygonForm(polygon_pts, normal_material,
-                          CollDirection.ALLOW_FROM_OUTSIDE)
-    coll = polygon.find_collision(_ball_neu)
-    print(f"got coll: {coll}")
-    rotating_polygon = make_rotating(polygon, Vec(250, 250), 100)
-    # rotating_rotating_polygon = make_rotating(rotating_polygon, Vec(300, 300), 1000)
-    # start_forms.add_form(polygon)
-    # start_forms.add_form(rotating_polygon)
-    rotated_floating_ball = make_rotating(floating_ball, Vec(700, 420), 100)
-    start_forms.add_form(rotated_floating_ball)
-    curr_forms = start_forms
-    last_time = 0
+        def play_fn():
+            game.unpause()
+            game_screen.makeScreen()
+        game_button = Button(30, 30, 400, 100, play_fn, 'Play')
+        menu_buttons = [game_button]
 
-    flipper_moving_up = False
-    n_colls = 0
+        def pause():
+            game.pause()
+            menu_screen.makeScreen()
+        pause_button = Button(300, 00, 100, 45, pause, "Pause")
+        game_buttons = [pause_button]
 
-    def on_update(game: PinballGame):
-        global flipper_moving_up
-        print(f"game: {game}")
-        flipper = game.curr_forms.get_named_form("flipper")
-        assert isinstance(flipper, TempForm)
-        move_ended = game.calc_time() > flipper.form_duration
-        if pygame.K_SPACE in game.curr_pressed and not flipper_moving_up and move_ended:
-            print("a")
-            t = game.calc_time()
-            curr_state = game.coll_thread.check_coll(t, None)
-            if curr_state is not None:
-                game.balls, game.curr_forms, _, _ = curr_state
-            # stop_process(coll_process, stop_event)
-            game.curr_forms = game.curr_forms.clone()
-            game.curr_forms.set_named_form("flipper", make_flipper(
-                flipper_line, Vec(100, 720), 1, 0, 3, False, t))
-            # flipper.set(make_flipper(flipper_line, Vec(100, 620), 1, 0, 1, False, t))
-            game.coll_thread.restart(game.balls, game.curr_forms, t)
-            curr_state = game.coll_thread.check_coll(t, None)
-            if curr_state is not None:
-                game.balls, game.curr_forms, _, _ = curr_state
-            flipper_moving_up = True
-        elif pygame.K_SPACE not in game.curr_pressed and flipper_moving_up and move_ended:
-            print("b")
-            t = game.calc_time()
-            curr_state = game.coll_thread.check_coll(t, None)
-            if curr_state is not None:
-                game.balls, game.curr_forms, _, _ = curr_state
-            # stop_process(coll_process, stop_event)
-            game.curr_forms = game.curr_forms.clone()
-            game.curr_forms.set_named_form("flipper", make_flipper(
-                flipper_line, Vec(100, 720), 1, 0, 10, True, t))
-            # flipper.set(make_flipper(flipper_line, Vec(100, 620), 1, 0, 1, True, t))
-            game.coll_thread.restart(game.balls, game.curr_forms, t)
-            curr_state = game.coll_thread.check_coll(t, None)
-            if curr_state is not None:
-                game.balls, game.curr_forms, _, _ = curr_state
+        kill_button = Button(
+            30, 30, 400, 100, menu_screen.makeScreen, "Return to Menu")
+        kill_buttons = [kill_button]
+        kill_screen.setButtons(kill_buttons)
+        menu_screen.setButtons(menu_buttons)
+        game_screen.setButtons(game_buttons)
 
-            flipper_moving_up = False
+        Screen_list = [menu_screen, game_screen, kill_screen]
+        Handler = ScreenHandler(Screen_list)
+        k = 0
+        # curr_pressed.add(pygame.K_SPACE)
+        win = kill_screen.makeScreen()
+        while running:
 
-    def on_keydown(key: int, game: PinballGame):
-        if key == pygame.K_f:
-            # global speed
-            game.last_time = game.calc_time()
-            game.start_time = time.time_ns()
-            game.speed -= 0.1
-        # if key is the letter "s", make game slower
-        if key == pygame.K_s:
-            # global speed
-            game.last_time = game.calc_time()
-            game.start_time = time.time_ns()
-            game.speed += 0.1
+            if game_screen.checkState():
+                game_screen.runFunction(screen)
+            Handler.update(screen)
+            for event in pygame.event.get():
+                Handler.handle_event(event)
+                game.handle_event(event)
 
-            print(f"speed: {game.speed}")
-        # if key is the letter "r", reset n_colls
-        if key == pygame.K_r:
-            game.n_colls = 0
-    game = PinballGame(start_forms=start_forms, balls=balls,
-                       on_keydown=on_keydown, on_update=on_update)
-    kill_screen = Screen("kill_screen", None, color = (0, 0, 0))
-    game_screen = Screen("game", lambda screen: game.update(screen))
-    menu_screen = Screen("menu", None, color = (0, 0, 255))
-
-    game_button = Button(30, 30, 400, 100, game_screen.makeScreen,'Play')
-    menu_buttons = [game_button]
-    pause_button = Button(300, 00, 100, 45, menu_screen.makeScreen,"Pause")
-    game_buttons = [pause_button]
-    kill_button = Button(30, 30, 400, 100, menu_screen.makeScreen,"Return to Menu")
-    kill_buttons = [kill_button]
-    kill_screen.setButtons(kill_buttons)
-    menu_screen.setButtons(menu_buttons)
-    game_screen.setButtons(game_buttons)
-    
-    Screen_list = [menu_screen, game_screen, kill_screen]
-    Handler = ScreenHandler(Screen_list)
-    k = 0
-    # curr_pressed.add(pygame.K_SPACE)
-    win = kill_screen.makeScreen()
+            # if not game.update(screen=screen):
+            #     break
+            pygame.display.flip()
+            clock.tick(60)
+        # curr_pressed.add(pygame.K_SPACE)
     while running:
-
-
-        
-        if game_screen.checkState():
-            game_screen.runFunction(screen)
-        Handler.update(screen)
-        for event in pygame.event.get():
-            Handler.handle_event(event)
-            game.handle_event(event)
-                
-
-
-        # if not game.update(screen=screen):
-        #     break
+        # print(f"globals: {game.curr_state.ballang_vars}")
+        print(f"passed: {game.calc_time()}")
+        if not game.update(screen=screen):
+            print("end")
+            break
         pygame.display.flip()
         clock.tick(60)
 
     pygame.quit()
+    game.coll_thread.stop()
     # coll_process.join()

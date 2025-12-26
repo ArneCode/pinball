@@ -1,16 +1,16 @@
 from __future__ import annotations
 import math
-from typing import List, Tuple
+from typing import Callable, Dict, List, Optional, Tuple
 
 import pygame
 from collision.coll_direction import CollDirection
-from math_utils.angle import angle_distance
+from math_utils.angle import angle_distance, rad_to_deg
 from objects.material import Material
-from objects.form import Form
+from objects.form import Form, StaticForm
 from objects.path import Path, CirclePath
 from math_utils.vec import Vec
 
-class CircleForm(Form):
+class CircleForm(StaticForm):
     """
     A circle in the game.
 
@@ -38,7 +38,10 @@ class CircleForm(Form):
     paths: List[Path]
     color: Tuple[float, float, float]
 
-    def __init__(self, pos: Vec, radius, material: Material, color: Tuple, min_angle: float = 0, max_angle: float = 2*math.pi, resolution=100, ball_radius=50, name="circle"):
+    def __init__(self, pos: Vec, radius, material: Material, 
+                 color: Tuple, min_angle: float = 0, max_angle: float = 2*math.pi, 
+                 resolution=100, ball_radius=50, name="circle", 
+                 on_collision: List[str] = [], do_reflect: bool = True):
         """
         Initialize the CircleForm.
 
@@ -106,7 +109,7 @@ class CircleForm(Form):
 
             self.points.append((x, y))
         # giving the paths to the Form class so that it can handle collisions
-        super().__init__(self.paths)
+        super().__init__(self.paths, on_collision=on_collision, do_reflect=do_reflect)
 
     def draw(self, screen, color, time: float):
         pygame.draw.lines(screen, color, False, self.points, width=3)
@@ -124,9 +127,23 @@ class CircleForm(Form):
         return self.name
 
     def rotate(self, angle: float, center: Vec[float]) -> CircleForm:
-        angle = -angle
+        #angle = -angle
         new_pos = self.pos.rotate(angle, center)
         return CircleForm(new_pos, self.radius, self.material, self.color, self.min_angle+angle, self.max_angle+angle, name=self.name)
 
     def get_material(self) -> Material:
         return self.material
+    
+    def get_json(self) -> dict:
+        return {
+            "type": "CircleForm",
+            "params": {
+                "pos": self.pos.get_json(),
+                "radius": self.radius,
+                "min_angle": rad_to_deg(self.min_angle),
+                "max_angle": rad_to_deg(self.max_angle),
+                "name": self.name,
+                "material": self.material.get_json(),
+                "color": self.color
+            }
+        }

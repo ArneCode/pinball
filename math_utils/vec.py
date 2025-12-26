@@ -129,8 +129,8 @@ class Vec(Generic[T]):
         rotate self around center by angle "im Uhrzeigersinn"
         """
         this_offset = self-center
-        this_offset_rot = Vec(this_offset.x*math.cos(angle) + this_offset.y*math.sin(angle),
-                              -this_offset.x*math.sin(angle) + this_offset.y*math.cos(angle))
+        this_offset_rot = Vec(this_offset.x*math.cos(angle) - this_offset.y*math.sin(angle),
+                              this_offset.x*math.sin(angle) + this_offset.y*math.cos(angle))
         return this_offset_rot + center
 
     def rotate_poly(self, angle: Polynom, center: Vec, taylor_approx: int) -> Vec:
@@ -140,8 +140,8 @@ class Vec(Generic[T]):
         sin_poly = sin_taylor(taylor_approx)
         cos_poly = cos_taylor(taylor_approx)
         this_offset = self-center
-        this_offset_rot = Vec(this_offset.x*cos_poly.apply(angle) + this_offset.y*sin_poly.apply(angle),
-                              -this_offset.x*sin_poly.apply(angle) + this_offset.y*cos_poly.apply(angle))
+        this_offset_rot = Vec(this_offset.x*cos_poly.apply(angle) - this_offset.y*sin_poly.apply(angle),
+                              this_offset.x*sin_poly.apply(angle) + this_offset.y*cos_poly.apply(angle))
         return this_offset_rot + center
 
     def __str__(self) -> str:
@@ -149,3 +149,10 @@ class Vec(Generic[T]):
 
     def as_tuple(self) -> Tuple[T, T]:
         return (self.x, self.y)
+    def get_json(self) -> dict:
+        if isinstance(self.x, numbers.Number) and isinstance(self.y, numbers.Number):
+            return {"x": self.x, "y": self.y}
+        elif isinstance(self.x, Polynom) and isinstance(self.y, Polynom):
+            return {"x": self.x.get_json(), "y": self.y.get_json()}
+        else:
+            raise ValueError("can only get json of numbers or polynoms")

@@ -27,3 +27,11 @@ class Material:
         self.factor_par = factor_par
         self.min_ort = min_ort
         self.min_par = min_par
+    def get_json(self):
+        """
+        Get the json representation of the material.
+
+        Returns:
+            - dict: The json representation of the material.
+        """
+        return {"factor_ort": self.factor_ort, "factor_par": self.factor_par, "min_ort": self.min_ort, "min_par": self.min_par}

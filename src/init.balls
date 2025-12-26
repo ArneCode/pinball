@@ -1,0 +1,15 @@
+def on_init(){
+    set_global("ball_spawnable", 1==0, 0.0);
+    set_global("flipper_moving_up_left", 1==0, 0.0);
+    set_global("flipper_moving_up_right", 1==0, 0.0);
+
+    let highscore;
+    if !file_var_exists("highscore"){
+        highscore = 0;
+    }else{
+        highscore = read_file_var("highscore");
+    }
+    set_global("highscore", highscore, 0.0);
+    set_global("score", 0, 0.0);
+    set_global("sound", "", 0.0);
+    }

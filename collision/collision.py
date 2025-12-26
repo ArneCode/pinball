@@ -4,6 +4,9 @@ from math_utils.vec import Vec
 
 #from path import Path
 class Collision(ABC):
+    """
+    Interface for collision
+    """
     @abstractmethod
     def get_result_dir(self) -> Vec:
         pass
@@ -11,9 +14,12 @@ class Collision(ABC):
     def get_coll_t(self) -> float:
         pass
     @abstractmethod
-    def get_obj_form(self):
+    def get_obj_form(self) -> "StaticForm":
         pass
 class SimpleCollision(Collision):
+    """
+    Simple collision with a static object
+    """
     time: float
     bahn: Vec
     #obj: Path  # replace with interface
@@ -26,6 +32,9 @@ class SimpleCollision(Collision):
         return self.obj.get_form()
 
     def get_result_dir(self) -> Vec:
+        """
+        Returns the resulting direction of the ball after the collision
+        """
        # print(f"obj: {self.obj}")
         material: Material = self.obj.get_material()
         normal = self.obj.get_normal(self.bahn.apply(self.time))
@@ -45,6 +54,9 @@ class SimpleCollision(Collision):
     def get_coll_t(self) -> float:
         return self.time
 class RotatedCollision(Collision):
+    """
+    Collision with a static object that is rotated
+    """
     angle: float
     static_coll: Collision
     def __init__(self, collision: Collision, angle: float):
@@ -58,6 +70,9 @@ class RotatedCollision(Collision):
         return self.static_coll.get_obj_form()
 
 class TimedCollision(Collision):
+    """
+    Collision at a fixed point in time
+    """
     time: float
     static_coll: Collision
     def __init__(self, collision: Collision, time: float):

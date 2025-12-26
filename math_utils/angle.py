@@ -87,3 +87,27 @@ def calc_angle_between(_from: Vec, to: Vec) -> float:
     while angle_between < 0:
         angle_between += 2*math.pi
     return angle_between
+
+def deg_to_rad(deg: float) -> float:
+    """
+    Converts degrees to radians.
+    
+    Args:
+        - deg (float): The angle in degrees.
+    
+    Returns:
+        - float: The angle in radians.
+    """
+    return deg * math.pi / 180
+
+def rad_to_deg(rad: float) -> float:
+    """
+    Converts radians to degrees.
+    
+    Args:
+        - rad (float): The angle in radians.
+    
+    Returns:
+        - float: The angle in degrees.
+    """
+    return rad * 180 / math.pi

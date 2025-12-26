@@ -1,0 +1,7 @@
+def on_keydown(key){
+    if key == 102{
+        increase_speed(0.1);
+    }else if key == 115{
+        decrease_speed(0.1);
+    }
+}
